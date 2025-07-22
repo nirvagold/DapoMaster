@@ -1,0 +1,56 @@
+// src-tauri/src/lib.rs
+
+use tauri::{AppHandle, Emitter};
+use crate::app_state::DbPool;
+use sqlx::postgres::PgPoolOptions;
+
+// Deklarasi modul
+mod app_state;
+mod commands;
+mod setup;
+mod tricky_method;
+
+// Gunakan item dari modul
+
+pub fn emit_log(app: &AppHandle, msg: &str) {
+    let _ = app.emit("backend_log", msg.to_string());
+}
+
+pub fn run() {
+    // Inisialisasi pool database
+    let db_url = "postgres://dapodik_user:17Agustus1945@localhost:54532/pendataan";
+    let pool = tauri::async_runtime::block_on(async {
+        PgPoolOptions::new()
+            .max_connections(5)
+            .connect(db_url)
+            .await
+            .expect("Failed to connect to database")
+    });
+    let db_pool = DbPool { pool };
+
+    tauri::Builder::default()
+        .manage(db_pool)
+        .setup(|app| {
+            // Panggil setup_app untuk membuat window splashscreen dan main window
+            crate::setup::setup_app(app)?;
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            commands::pengguna::ambil_semua_pengguna,
+            commands::dashboard::get_dashboard_stats,
+            commands::referensi::get_all_rombels,
+            commands::referensi::get_all_agama,
+            commands::referensi::get_all_jenis_pendaftaran,
+            commands::referensi::get_all_hobby,
+            commands::referensi::get_all_cita,
+            commands::referensi::get_wilayah_by_level_and_parent,
+            commands::siswa::get_total_siswa,
+            commands::siswa::get_daftar_siswa,
+            commands::siswa::registrasi_siswa_baru,
+            commands::siswa::get_siswa_by_id,
+            commands::siswa::update_siswa,
+            commands::siswa::delete_siswa
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}

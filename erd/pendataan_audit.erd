@@ -1,0 +1,1 @@
+<diagram version="1" name="empty" time="202507180039"><entities><data-source id="postgres-jdbc-19818189d02-ea95918601822ba"><entity id="1" name="logged_actions" fq-name="audit.logged_actions" order="0" border-width="3" x="187" y="41"><path name="audit"/><path name="pendataan"/></entity></data-source></entities><relations/></diagram>
