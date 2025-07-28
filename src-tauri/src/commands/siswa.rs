@@ -40,6 +40,7 @@ pub struct RegistrasiSiswaPayload {
     pub kode_wilayah: String,
     pub nama_ibu_kandung: String,
     pub kewarganegaraan: String,
+    pub sekolah_id: String,
 }
 
 #[tauri::command]
@@ -119,8 +120,10 @@ pub async fn registrasi_siswa_baru(app: AppHandle, payload: RegistrasiSiswaPaylo
         tx.rollback().await.ok();
         return Err(format!("Gagal insert ke peserta_didik: {}", e));
     }
-    let sekolah_id = Uuid::parse_str("01460599-222a-464a-9526-21cfd7410001").unwrap();
-    let insert_reg_pd_result = sqlx::query("INSERT INTO registrasi_peserta_didik (registrasi_id, peserta_didik_id, sekolah_id, jenis_pendaftaran_id, nipd, tanggal_masuk_sekolah, sekolah_asal, id_hobby, id_cita, a_pernah_paud, a_pernah_tk, create_date, last_update, soft_delete, updater_id) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW(), 0, $11)")
+    let sekolah_id = Uuid::parse_str(&payload.sekolah_id).unwrap();
+    let registrasi_id = Uuid::new_v4();
+    let insert_reg_pd_result = sqlx::query("INSERT INTO registrasi_peserta_didik (registrasi_id, peserta_didik_id, sekolah_id, jenis_pendaftaran_id, nipd, tanggal_masuk_sekolah, sekolah_asal, id_hobby, id_cita, a_pernah_paud, a_pernah_tk, create_date, last_update, soft_delete, updater_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW(), 0, $12)")
+        .bind(registrasi_id)
         .bind(peserta_didik_id)
         .bind(sekolah_id)
         .bind(&payload.jenis_pendaftaran_id)

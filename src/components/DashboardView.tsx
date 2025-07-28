@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Users, GraduationCap, School, BookCopy, Loader2, AlertTriangle } from "lucide-react";
+import { Users, GraduationCap, School, BookCopy, Loader2, AlertTriangle, Calendar, Clock } from "lucide-react";
 import type { LucideProps } from 'lucide-react';
 import React from "react";
+import type { Semester, TahunAjaran } from "./PemilihanPenggunaView";
 
 type DashboardStats = {
   total_siswa: number;
@@ -35,7 +36,7 @@ const StatCard: React.FC<StatCardProps> = ({ icon: Icon, title, value, color, lo
   </div>
 );
 
-export default function DashboardView() {
+export default function DashboardView({ semester, tahunAjaran }: { semester: Semester | null, tahunAjaran: TahunAjaran | null }) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +51,36 @@ export default function DashboardView() {
   return (
     <div>
       <h1 className="text-3xl font-bold text-pink-500 mb-6">Dashboard</h1>
+      
+      {/* Informasi Semester dan Tahun Ajaran */}
+      {(semester || tahunAjaran) && (
+        <div className="mb-6 p-4 bg-gray-800 rounded-lg border border-gray-700">
+          <h2 className="text-lg font-semibold text-pink-400 mb-3 flex items-center gap-2">
+            <Calendar size={20} />
+            Informasi Akademik
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {tahunAjaran && (
+              <div className="flex items-center gap-3">
+                <Clock className="text-gray-400" size={18} />
+                <div>
+                  <p className="text-sm text-gray-400">Tahun Ajaran</p>
+                  <p className="font-medium text-white">{tahunAjaran.nama}</p>
+                </div>
+              </div>
+            )}
+            {semester && (
+              <div className="flex items-center gap-3">
+                <Calendar className="text-gray-400" size={18} />
+                <div>
+                  <p className="text-sm text-gray-400">Semester</p>
+                  <p className="font-medium text-white">{semester.nama}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       
       {error && (
         <div className="bg-red-800 text-white p-4 rounded-md flex items-center gap-3">

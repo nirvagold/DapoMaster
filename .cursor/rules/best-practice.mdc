@@ -1,0 +1,8 @@
+# Best Practice Dokumentasi Resmi
+
+Setiap implementasi WAJIB mengacu pada dokumentasi resmi terbaru Tauri, Rust, React, dan TypeScript untuk memastikan best practice terkini.
+description:
+globs:
+alwaysApply: false
+---
+ 

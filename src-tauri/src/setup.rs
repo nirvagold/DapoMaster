@@ -4,11 +4,11 @@ use tauri::{App, Manager, WebviewUrl, Emitter};
 
 pub fn setup_app(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     let app_handle = app.handle().clone();
-    emit_log(&app_handle, "[INIT] Tauri setup initiated.");
+    emit_log(&app_handle, "[SETUP] Mulai setup_app...");
 
     // Buat window splashscreen
     if app.get_webview_window("splashscreen").is_none() {
-        emit_log(&app_handle, "[INIT] Creating splashscreen window...");
+        emit_log(&app_handle, "[SETUP] Membuat window splashscreen...");
         tauri::WebviewWindowBuilder::new(
             app,
             "splashscreen",
@@ -18,39 +18,35 @@ pub fn setup_app(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         .inner_size(500.0, 300.0)
         .resizable(false)
         .visible(true)
+        .center()
         .build()?;
+        emit_log(&app_handle, "[SETUP] Window splashscreen berhasil dibuat dan ditampilkan.");
+    } else {
+        emit_log(&app_handle, "[SETUP] Window splashscreen sudah ada.");
     }
     // Buat window utama (main), tapi sembunyikan dulu
     if app.get_webview_window("main").is_none() {
-        emit_log(&app_handle, "[INIT] Creating main window...");
+        emit_log(&app_handle, "[SETUP] Membuat window utama (main)...");
         tauri::WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
             .title("DapoMaster")
             .inner_size(800.0, 600.0)
-            .min_inner_size(600.0, 600.0)
+            .min_inner_size(750.0, 600.0)
             .visible(false)
             .build()?;
+        emit_log(&app_handle, "[SETUP] Window utama (main) berhasil dibuat (masih tersembunyi).");
+    } else {
+        emit_log(&app_handle, "[SETUP] Window utama (main) sudah ada.");
     }
 
     let splashscreen_window = app.get_webview_window("splashscreen").unwrap();
     let main_window = app.get_webview_window("main").unwrap();
-    emit_log(&app_handle, "[INIT] Window handles acquired.");
+    emit_log(&app_handle, "[SETUP] Handle window splashscreen dan main sudah diperoleh.");
 
-    // Jalankan tricky method di background task
-    tauri::async_runtime::spawn(async move {
-        emit_log(&app_handle, "[BG_TASK] Background task started.");
-        if let Err(e) = tricky_method::jalankan_tricky_method_rust(&app_handle).await {
-            emit_log(&app_handle, &format!("[BG_TASK] Error in tricky_method: {}", e));
-            // Kirim event ke frontend, frontend handle alert dan exit
-            let _ = app_handle.emit("tricky_method_failed", e);
-            // Jangan exit di backend, biar frontend yang exit setelah alert
-        } else {
-            emit_log(&app_handle, "[BG_TASK] Tricky_method executed successfully.");
-            emit_log(&app_handle, "[BG_TASK] Background task finished. Transitioning windows...");
-            let _ = splashscreen_window.close();
-            let _ = main_window.show();
-            emit_log(&app_handle, "[INIT] Main window is now visible.");
-        }
-    });
+    // Setelah setup selesai, tampilkan window utama dan tutup splashscreen
+    emit_log(&app_handle, "[SETUP] Menampilkan window utama (main) dan menutup splashscreen...");
+    let _ = main_window.show();
+    let _ = splashscreen_window.close();
+    emit_log(&app_handle, "[SETUP] Window utama (main) sekarang sudah tampil, splashscreen ditutup.");
 
     Ok(())
 } 

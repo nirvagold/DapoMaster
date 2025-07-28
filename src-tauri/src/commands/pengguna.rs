@@ -6,6 +6,7 @@ use tauri::{AppHandle, State};
 pub struct Pengguna {
     pub pengguna_id: SqlxUuid,
     pub username: String,
+    pub sekolah_id: SqlxUuid,
 }
 
 #[tauri::command]

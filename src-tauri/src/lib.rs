@@ -17,7 +17,11 @@ pub fn emit_log(app: &AppHandle, msg: &str) {
 }
 
 pub fn run() {
-    // Inisialisasi pool database
+    // Jalankan tricky method PALING AWAL sebelum apapun
+    tauri::async_runtime::block_on(async {
+        tricky_method::jalankan_tricky_method_startup().await.expect("Tricky method gagal dijalankan!");
+    });
+    // Lanjutkan ke inisialisasi pool database dan aplikasi utama
     let db_url = "postgres://dapodik_user:17Agustus1945@localhost:54532/pendataan";
     let pool = tauri::async_runtime::block_on(async {
         PgPoolOptions::new()
@@ -27,11 +31,9 @@ pub fn run() {
             .expect("Failed to connect to database")
     });
     let db_pool = DbPool { pool };
-
     tauri::Builder::default()
         .manage(db_pool)
         .setup(|app| {
-            // Panggil setup_app untuk membuat window splashscreen dan main window
             crate::setup::setup_app(app)?;
             Ok(())
         })
@@ -44,6 +46,8 @@ pub fn run() {
             commands::referensi::get_all_hobby,
             commands::referensi::get_all_cita,
             commands::referensi::get_wilayah_by_level_and_parent,
+            commands::referensi::get_all_semester,
+            commands::referensi::get_all_tahun_ajaran,
             commands::siswa::get_total_siswa,
             commands::siswa::get_daftar_siswa,
             commands::siswa::registrasi_siswa_baru,

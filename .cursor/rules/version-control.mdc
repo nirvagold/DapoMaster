@@ -1,0 +1,8 @@
+# Aturan Version Control
+
+Setiap fitur atau perbaikan signifikan WAJIB di-commit ke Git dan GitHub. Pesan commit akan diberikan oleh pengguna.
+description:
+globs:
+alwaysApply: false
+---
+ 

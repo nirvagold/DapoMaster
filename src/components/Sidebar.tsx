@@ -1,6 +1,7 @@
-import { Home, Users, ChevronDown, ChevronRight, Book, CheckSquare, MoreHorizontal } from "lucide-react";
+import { Home, Users, ChevronDown, ChevronRight, Book, CheckSquare, MoreHorizontal, Calendar, Clock } from "lucide-react";
 import { useState } from "react";
 import clsx from "clsx"; // Utility untuk conditional classes
+import type { Semester, TahunAjaran } from "./PemilihanPenggunaView";
 
 type MenuItem = {
   id: string;
@@ -25,7 +26,17 @@ const menuItems: MenuItem[] = [
   },
 ];
 
-export default function Sidebar({ onNavigate, activePath }: { onNavigate: (path: string) => void; activePath: string }) {
+export default function Sidebar({ 
+  onNavigate, 
+  activePath, 
+  semester, 
+  tahunAjaran 
+}: { 
+  onNavigate: (path: string) => void; 
+  activePath: string;
+  semester: Semester | null;
+  tahunAjaran: TahunAjaran | null;
+}) {
   const [openMenus, setOpenMenus] = useState({ "data-siswa": true });
 
   const toggleMenu = (id: string) => {
@@ -80,6 +91,31 @@ export default function Sidebar({ onNavigate, activePath }: { onNavigate: (path:
       <div className="text-center mb-8">
         <h2 className="text-2xl font-bold text-pink-600">DapoMaster</h2>
       </div>
+      
+      {/* Informasi Semester dan Tahun Ajaran */}
+      {(semester || tahunAjaran) && (
+        <div className="mb-6 p-3 bg-gray-800 rounded-lg border border-gray-700">
+          <h3 className="text-sm font-semibold text-pink-400 mb-2 flex items-center gap-2">
+            <Calendar size={16} />
+            Konteks Akademik
+          </h3>
+          <div className="space-y-2 text-xs">
+            {tahunAjaran && (
+              <div className="flex items-center gap-2">
+                <Clock className="text-gray-400" size={12} />
+                <span className="text-gray-300">{tahunAjaran.nama}</span>
+              </div>
+            )}
+            {semester && (
+              <div className="flex items-center gap-2">
+                <Calendar className="text-gray-400" size={12} />
+                <span className="text-gray-300">{semester.nama}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
       <nav>{menuItems.map(renderMenuItem)}</nav>
     </aside>
   );

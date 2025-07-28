@@ -41,6 +41,19 @@ pub struct WilayahReferensi {
     pub mst_kode_wilayah: Option<String>,
 }
 
+#[derive(sqlx::FromRow, serde::Serialize, Clone)]
+pub struct Semester {
+    pub semester_id: BigDecimal,
+    pub nama: String,
+    pub tahun_ajaran_id: BigDecimal,
+}
+
+#[derive(sqlx::FromRow, serde::Serialize, Clone)]
+pub struct TahunAjaran {
+    pub tahun_ajaran_id: BigDecimal,
+    pub nama: String,
+}
+
 #[tauri::command]
 pub async fn get_all_rombels(app: AppHandle, state: State<'_, DbPool>) -> Result<Vec<RombonganBelajar>, String> {
     crate::emit_log(&app, "CMD: get_all_rombels - Fetching...");
@@ -89,4 +102,18 @@ pub async fn get_wilayah_by_level_and_parent(app: AppHandle, level: i16, parent:
     };
     let wilayah = query.fetch_all(&state.pool).await.map_err(|e| e.to_string())?;
     Ok(wilayah)
+}
+
+#[tauri::command]
+pub async fn get_all_semester(app: AppHandle, state: State<'_, DbPool>) -> Result<Vec<Semester>, String> {
+    crate::emit_log(&app, "CMD: get_all_semester - Fetching...");
+    sqlx::query_as("SELECT semester_id, nama, tahun_ajaran_id FROM ref.semester ORDER BY tahun_ajaran_id DESC, semester_id DESC")
+        .fetch_all(&state.pool).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_all_tahun_ajaran(app: AppHandle, state: State<'_, DbPool>) -> Result<Vec<TahunAjaran>, String> {
+    crate::emit_log(&app, "CMD: get_all_tahun_ajaran - Fetching...");
+    sqlx::query_as("SELECT tahun_ajaran_id, nama FROM ref.tahun_ajaran ORDER BY nama DESC")
+        .fetch_all(&state.pool).await.map_err(|e| e.to_string())
 } 

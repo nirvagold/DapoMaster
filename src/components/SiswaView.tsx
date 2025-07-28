@@ -6,6 +6,7 @@ import Modal from "./Modal"; // Impor komponen Modal
 import SiswaForm from "./SiswaForm";
 import { SiswaFormData } from "./SiswaForm"; // Impor tipe
 import { WilayahReferensi } from "./SiswaForm";
+import type { Semester, TahunAjaran } from "./PemilihanPenggunaView";
 
 // Hook untuk debouncing
 function useDebounce<T>(value: T, delay: number): T {
@@ -55,7 +56,12 @@ export type Cita = { id_cita: number; nm_cita: string; };
 
 const PAGE_SIZE = 15;
 
-export default function SiswaView({ pageTitle }: { pageTitle: string }) {
+export default function SiswaView({ pageTitle, user, semester, tahunAjaran }: { 
+  pageTitle: string, 
+  user: any,
+  semester: Semester | null,
+  tahunAjaran: TahunAjaran | null
+}) {
   const [data, setData] = useState<PesertaDidik[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +72,8 @@ export default function SiswaView({ pageTitle }: { pageTitle: string }) {
   const [rombels, setRombels] = useState<RombonganBelajar[]>([]);
   const [selectedRombel, setSelectedRombel] = useState<string>("");
   const [agamaList, setAgamaList] = useState<Agama[]>([]);
-  const [formData, setFormData] = useState<SiswaFormData>({
+  // State untuk form registrasi siswa baru
+  const [formDataRegistrasi, setFormDataRegistrasi] = useState<SiswaFormData>({
     nama: "", nisn: "", jenis_kelamin: "L", tempat_lahir: "", tanggal_lahir: "", agama_id: "",
     nipd: "", tanggal_masuk_sekolah: "", jenis_pendaftaran_id: "", id_hobby: "", id_cita: "",
     a_pernah_paud: false, a_pernah_tk: false,
@@ -74,7 +81,52 @@ export default function SiswaView({ pageTitle }: { pageTitle: string }) {
     desa_kelurahan: "",
     kode_wilayah: "",
     nama_ibu_kandung: "",
-    kewarganegaraan: "ID", // Default ke WNI
+    kewarganegaraan: "ID",
+    nik: "",
+    no_kk: "",
+    rt: "",
+    rw: "",
+    nama_dusun: "",
+    kode_pos: "",
+    lintang: "",
+    bujur: "",
+    jenis_tinggal_id: "",
+    alat_transportasi_id: "",
+    nik_ayah: "",
+    nik_ibu: "",
+    anak_keberapa: "",
+    nik_wali: "",
+    nomor_telepon_rumah: "",
+    nomor_telepon_seluler: "",
+    email: "",
+  });
+  // State untuk form edit siswa
+  const [formDataEdit, setFormDataEdit] = useState<SiswaFormData>({
+    nama: "", nisn: "", jenis_kelamin: "L", tempat_lahir: "", tanggal_lahir: "", agama_id: "",
+    nipd: "", tanggal_masuk_sekolah: "", jenis_pendaftaran_id: "", id_hobby: "", id_cita: "",
+    a_pernah_paud: false, a_pernah_tk: false,
+    alamat_jalan: "",
+    desa_kelurahan: "",
+    kode_wilayah: "",
+    nama_ibu_kandung: "",
+    kewarganegaraan: "ID",
+    nik: "",
+    no_kk: "",
+    rt: "",
+    rw: "",
+    nama_dusun: "",
+    kode_pos: "",
+    lintang: "",
+    bujur: "",
+    jenis_tinggal_id: "",
+    alat_transportasi_id: "",
+    nik_ayah: "",
+    nik_ibu: "",
+    anak_keberapa: "",
+    nik_wali: "",
+    nomor_telepon_rumah: "",
+    nomor_telepon_seluler: "",
+    email: "",
   });
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -86,28 +138,45 @@ export default function SiswaView({ pageTitle }: { pageTitle: string }) {
     agama: [] as Agama[],
   });
   
+  // Saat klik edit, isi formDataEdit saja
   const handleEditClick = (siswa: PesertaDidik) => {
     setEditingSiswa(siswa);
-    // Isi form dengan data siswa yang akan diedit
-    setFormData({
+    setFormDataEdit({
       nama: siswa.nama,
       nisn: siswa.nisn || "",
       jenis_kelamin: siswa.jenis_kelamin,
       tempat_lahir: siswa.tempat_lahir || "",
-      tanggal_lahir: siswa.tanggal_lahir.split('T')[0], // Format YYYY-MM-DD
+      tanggal_lahir: siswa.tanggal_lahir.split('T')[0],
       agama_id: String(siswa.agama_id),
-      a_pernah_paud: false, // Reset checkbox
-      a_pernah_tk: false, // Reset checkbox
-      nipd: siswa.nik || "", // Asumsi ada field ini
-      tanggal_masuk_sekolah: siswa.tanggal_lahir.split('T')[0], // Asumsi ada field ini
-      jenis_pendaftaran_id: "", // Asumsi ada field ini
-      id_hobby: "", // Asumsi ada field ini
-      id_cita: "", // Asumsi ada field ini
+      a_pernah_paud: false,
+      a_pernah_tk: false,
+      nipd: siswa.nik || "",
+      tanggal_masuk_sekolah: siswa.tanggal_lahir.split('T')[0],
+      jenis_pendaftaran_id: "",
+      id_hobby: "",
+      id_cita: "",
       alamat_jalan: "",
       desa_kelurahan: "",
       kode_wilayah: "",
       nama_ibu_kandung: "",
       kewarganegaraan: "ID",
+      nik: siswa.nik || "",
+      no_kk: "",
+      rt: "",
+      rw: "",
+      nama_dusun: "",
+      kode_pos: "",
+      lintang: "",
+      bujur: "",
+      jenis_tinggal_id: "",
+      alat_transportasi_id: "",
+      nik_ayah: "",
+      nik_ibu: "",
+      anak_keberapa: "",
+      nik_wali: "",
+      nomor_telepon_rumah: "",
+      nomor_telepon_seluler: "",
+      email: "",
     });
     setIsModalOpen(true);
   };
@@ -124,25 +193,21 @@ export default function SiswaView({ pageTitle }: { pageTitle: string }) {
     }
   };
   
+  // Handler submit form edit
   const handleUpdateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingSiswa) return;
-    
     setLoading(true);
     setError(null);
     setSuccessMessage(null);
-
-    // Konversi id_agama ke integer
     const payload = {
-      ...formData,
-      agama_id: parseInt(formData.agama_id, 10), // Diperbaiki
+      ...formDataEdit,
+      agama_id: parseInt(formDataEdit.agama_id, 10),
     };
-
     try {
       const result = await invoke<string>("update_siswa", { payload, pesertaDidikId: editingSiswa.peserta_didik_id });
       setSuccessMessage(result);
-      // Reset form setelah berhasil
-      resetForm();
+      resetFormEdit();
     } catch (err) {
       setError(String(err));
     } finally {
@@ -150,7 +215,6 @@ export default function SiswaView({ pageTitle }: { pageTitle: string }) {
     }
     setIsModalOpen(false);
     setEditingSiswa(null);
-    // Refresh data
     fetchData(currentPage, debouncedSearchTerm, selectedRombel);
   };
 
@@ -256,42 +320,53 @@ export default function SiswaView({ pageTitle }: { pageTitle: string }) {
     </div>
   );
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  // Handler untuk form registrasi
+  const handleInputChangeRegistrasi = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData((prev: SiswaFormData) => ({ ...prev, [name]: value }));
+    setFormDataRegistrasi((prev: SiswaFormData) => ({ ...prev, [name]: value }));
   };
-  
-  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCheckboxChangeRegistrasi = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, checked } = e.target;
-    setFormData((prev: SiswaFormData) => ({ ...prev, [name]: checked }));
+    setFormDataRegistrasi((prev: SiswaFormData) => ({ ...prev, [name]: checked }));
+  };
+  // Handler untuk form edit
+  const handleInputChangeEdit = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormDataEdit((prev: SiswaFormData) => ({ ...prev, [name]: value }));
+  };
+  const handleCheckboxChangeEdit = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, checked } = e.target;
+    setFormDataEdit((prev: SiswaFormData) => ({ ...prev, [name]: checked }));
   };
 
+  // Handler submit form registrasi
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     setSuccessMessage(null);
-
-    // Konversi id_agama ke integer
     const payload = {
-      ...formData,
-      agama_id: parseInt(formData.agama_id, 10), // Diperbaiki
+      ...formDataRegistrasi,
+      agama_id: parseInt(formDataRegistrasi.agama_id, 10),
+      sekolah_id: user?.sekolah_id,
     };
-
+    console.log('[REGISTRASI] Mulai proses registrasi siswa:', payload);
     try {
       const result = await invoke<string>("registrasi_siswa_baru", { payload });
+      console.log('[REGISTRASI] Registrasi siswa berhasil:', result);
       setSuccessMessage(result);
-      // Reset form setelah berhasil
-      resetForm();
+      resetFormRegistrasi();
     } catch (err) {
+      console.error('[REGISTRASI] Registrasi siswa gagal:', err);
       setError(String(err));
     } finally {
       setLoading(false);
+      console.log('[REGISTRASI] Proses registrasi selesai.');
     }
   };
-  
-  const resetForm = () => {
-    setFormData({
+  // Reset form registrasi
+  const resetFormRegistrasi = () => {
+    setFormDataRegistrasi({
       nama: "", nisn: "", jenis_kelamin: "L", tempat_lahir: "", tanggal_lahir: "", agama_id: "",
       nipd: "", tanggal_masuk_sekolah: "", jenis_pendaftaran_id: "", id_hobby: "", id_cita: "",
       a_pernah_paud: false, a_pernah_tk: false,
@@ -300,8 +375,55 @@ export default function SiswaView({ pageTitle }: { pageTitle: string }) {
       kode_wilayah: "",
       nama_ibu_kandung: "",
       kewarganegaraan: "ID",
+      nik: "",
+      no_kk: "",
+      rt: "",
+      rw: "",
+      nama_dusun: "",
+      kode_pos: "",
+      lintang: "",
+      bujur: "",
+      jenis_tinggal_id: "",
+      alat_transportasi_id: "",
+      nik_ayah: "",
+      nik_ibu: "",
+      anak_keberapa: "",
+      nik_wali: "",
+      nomor_telepon_rumah: "",
+      nomor_telepon_seluler: "",
+      email: "",
     });
-  }
+  };
+  // Reset form edit
+  const resetFormEdit = () => {
+    setFormDataEdit({
+      nama: "", nisn: "", jenis_kelamin: "L", tempat_lahir: "", tanggal_lahir: "", agama_id: "",
+      nipd: "", tanggal_masuk_sekolah: "", jenis_pendaftaran_id: "", id_hobby: "", id_cita: "",
+      a_pernah_paud: false, a_pernah_tk: false,
+      alamat_jalan: "",
+      desa_kelurahan: "",
+      kode_wilayah: "",
+      nama_ibu_kandung: "",
+      kewarganegaraan: "ID",
+      nik: "",
+      no_kk: "",
+      rt: "",
+      rw: "",
+      nama_dusun: "",
+      kode_pos: "",
+      lintang: "",
+      bujur: "",
+      jenis_tinggal_id: "",
+      alat_transportasi_id: "",
+      nik_ayah: "",
+      nik_ibu: "",
+      anak_keberapa: "",
+      nik_wali: "",
+      nomor_telepon_rumah: "",
+      nomor_telepon_seluler: "",
+      email: "",
+    });
+  };
 
   // State untuk dropdown wilayah bertingkat
   const [wilayahOptions, setWilayahOptions] = useState<{
@@ -329,8 +451,8 @@ export default function SiswaView({ pageTitle }: { pageTitle: string }) {
   useEffect(() => {
     console.log("selectedWilayah.provinsi berubah:", selectedWilayah.provinsi);
     if (selectedWilayah.provinsi) {
-      // Pastikan parent string 8 karakter
-      const parentKode = selectedWilayah.provinsi.padEnd(6, '0');
+      // Kirim kode parent apa adanya, tanpa padEnd
+      const parentKode = selectedWilayah.provinsi.trim();
       console.log("fetch kabupaten parent:", parentKode);
       invoke<WilayahReferensi[]>("get_wilayah_by_level_and_parent", { level: 2, parent: parentKode })
         .then((kabupaten) => setWilayahOptions((prev) => ({ ...prev, kabupaten })))
@@ -343,7 +465,8 @@ export default function SiswaView({ pageTitle }: { pageTitle: string }) {
   // Fetch kecamatan saat kabupaten berubah
   useEffect(() => {
     if (selectedWilayah.kabupaten) {
-      invoke<WilayahReferensi[]>("get_wilayah_by_level_and_parent", { level: 3, parent: selectedWilayah.kabupaten })
+      const parentKode = selectedWilayah.kabupaten.trim();
+      invoke<WilayahReferensi[]>("get_wilayah_by_level_and_parent", { level: 3, parent: parentKode })
         .then((kecamatan) => setWilayahOptions((prev) => ({ ...prev, kecamatan })))
         .catch((err) => setError(`Gagal memuat kecamatan: ${err}`));
     } else {
@@ -354,7 +477,8 @@ export default function SiswaView({ pageTitle }: { pageTitle: string }) {
   // Fetch desa saat kecamatan berubah
   useEffect(() => {
     if (selectedWilayah.kecamatan) {
-      invoke<WilayahReferensi[]>("get_wilayah_by_level_and_parent", { level: 4, parent: selectedWilayah.kecamatan })
+      const parentKode = selectedWilayah.kecamatan.trim();
+      invoke<WilayahReferensi[]>("get_wilayah_by_level_and_parent", { level: 4, parent: parentKode })
         .then((desa) => setWilayahOptions((prev) => ({ ...prev, desa })))
         .catch((err) => setError(`Gagal memuat desa/kelurahan: ${err}`));
     } else {
@@ -367,13 +491,16 @@ export default function SiswaView({ pageTitle }: { pageTitle: string }) {
     console.log("handleWilayahChange", level, kode);
     if (level === 'provinsi') {
       setSelectedWilayah({ provinsi: kode, kabupaten: '', kecamatan: '' });
-      setFormData((prev) => ({ ...prev, kode_wilayah: '', desa_kelurahan: '' }));
+      setFormDataRegistrasi((prev) => ({ ...prev, kode_wilayah: '', desa_kelurahan: '' }));
+      setFormDataEdit((prev) => ({ ...prev, kode_wilayah: '', desa_kelurahan: '' }));
     } else if (level === 'kabupaten') {
       setSelectedWilayah((prev) => ({ ...prev, kabupaten: kode, kecamatan: '' }));
-      setFormData((prev) => ({ ...prev, kode_wilayah: '', desa_kelurahan: '' }));
+      setFormDataRegistrasi((prev) => ({ ...prev, kode_wilayah: '', desa_kelurahan: '' }));
+      setFormDataEdit((prev) => ({ ...prev, kode_wilayah: '', desa_kelurahan: '' }));
     } else if (level === 'kecamatan') {
       setSelectedWilayah((prev) => ({ ...prev, kecamatan: kode }));
-      setFormData((prev) => ({ ...prev, kode_wilayah: '', desa_kelurahan: '' }));
+      setFormDataRegistrasi((prev) => ({ ...prev, kode_wilayah: '', desa_kelurahan: '' }));
+      setFormDataEdit((prev) => ({ ...prev, kode_wilayah: '', desa_kelurahan: '' }));
     }
   };
 
@@ -381,12 +508,21 @@ export default function SiswaView({ pageTitle }: { pageTitle: string }) {
   const handleInputChangeWilayah = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
     if (e.target.name === 'kode_wilayah') {
       const selectedDesa = wilayahOptions.desa.find(d => d.kode_wilayah === e.target.value);
-      setFormData((prev) => ({ ...prev, kode_wilayah: e.target.value, desa_kelurahan: selectedDesa ? selectedDesa.nama : '' }));
+      setFormDataRegistrasi((prev) => ({ ...prev, kode_wilayah: e.target.value, desa_kelurahan: selectedDesa ? selectedDesa.nama : '' }));
+      setFormDataEdit((prev) => ({ ...prev, kode_wilayah: e.target.value, desa_kelurahan: selectedDesa ? selectedDesa.nama : '' }));
     } else {
-      handleInputChange(e);
+      handleInputChangeRegistrasi(e);
+      handleInputChangeEdit(e);
     }
   };
 
+  // Handler untuk form registrasi
+  const handleInputChangeWilayahRegistrasi = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormDataRegistrasi((prev: SiswaFormData) => ({ ...prev, [name]: value }));
+  };
+
+  // Pada renderRegistrationForm, gunakan formDataRegistrasi dan handler registrasi
   const renderRegistrationForm = () => (
     <div>
       {/* Notifikasi error */}
@@ -416,11 +552,11 @@ export default function SiswaView({ pageTitle }: { pageTitle: string }) {
         </div>
       )}
       <SiswaForm 
-        formData={formData}
+        formData={formDataRegistrasi}
         agamaList={agamaList}
         loading={loading}
-        onInputChange={handleInputChangeWilayah}
-        onCheckboxChange={handleCheckboxChange}
+        onInputChange={handleInputChangeWilayahRegistrasi}
+        onCheckboxChange={handleCheckboxChangeRegistrasi}
         onSubmit={handleFormSubmit}
         submitText="Registrasi Siswa Baru"
         referensi={referensi}
@@ -497,6 +633,27 @@ export default function SiswaView({ pageTitle }: { pageTitle: string }) {
   return (
     <div>
       <h1 className="text-3xl font-bold text-pink-500 mb-6">Data Siswa: {pageTitle}</h1>
+      
+      {/* Informasi Semester dan Tahun Ajaran */}
+      {(semester || tahunAjaran) && (
+        <div className="mb-6 p-4 bg-gray-800 rounded-lg border border-gray-700">
+          <div className="flex items-center gap-4 text-sm">
+            {tahunAjaran && (
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400">Tahun Ajaran:</span>
+                <span className="font-medium text-white">{tahunAjaran.nama}</span>
+              </div>
+            )}
+            {semester && (
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400">Semester:</span>
+                <span className="font-medium text-white">{semester.nama}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
       {pageTitle === 'Daftar' && (
         <div className="flex flex-col sm:flex-row gap-4 mb-4">
           {/* Search Bar */}
@@ -530,11 +687,11 @@ export default function SiswaView({ pageTitle }: { pageTitle: string }) {
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Edit Data Siswa">
         {editingSiswa && (
           <SiswaForm
-            formData={formData}
+            formData={formDataEdit}
             agamaList={agamaList}
             loading={loading}
-            onInputChange={handleInputChange}
-            onCheckboxChange={handleCheckboxChange}
+            onInputChange={handleInputChangeEdit}
+            onCheckboxChange={handleCheckboxChangeEdit}
             onSubmit={handleUpdateSubmit}
             submitText="Simpan Perubahan"
             referensi={referensi}

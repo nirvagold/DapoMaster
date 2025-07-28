@@ -1,0 +1,13 @@
+# Stack Utama Proyek
+
+Proyek ini menggunakan stack utama:
+- Backend: Rust (Tauri)
+- Frontend: React + TypeScript
+- CSS: Tailwind
+
+Ikuti best practice dari dokumentasi resmi masing-masing teknologi.
+description:
+globs:
+alwaysApply: false
+---
+ 

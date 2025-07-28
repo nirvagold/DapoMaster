@@ -1,0 +1,8 @@
+# Aturan Bahasa Indonesia
+
+Semua nama variabel, fungsi, komentar kode, dan teks yang tampil ke pengguna WAJIB menggunakan Bahasa Indonesia.
+description:
+globs:
+alwaysApply: false
+---
+ 

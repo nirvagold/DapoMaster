@@ -1,0 +1,8 @@
+# Otomatisasi Perintah Terminal
+
+Asisten diizinkan menjalankan perintah terminal yang diperlukan (seperti npm install, cargo build, dsb) secara otomatis tanpa perlu konfirmasi pengguna.
+description:
+globs:
+alwaysApply: false
+---
+ 

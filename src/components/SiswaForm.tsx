@@ -20,6 +20,24 @@ export type SiswaFormData = {
   kode_wilayah: string;
   nama_ibu_kandung: string;
   kewarganegaraan: string;
+  // Kolom tambahan dari tabel peserta_didik
+  nik: string;
+  no_kk: string;
+  rt: string;
+  rw: string;
+  nama_dusun: string;
+  kode_pos: string;
+  lintang: string;
+  bujur: string;
+  jenis_tinggal_id: string;
+  alat_transportasi_id: string;
+  nik_ayah: string;
+  nik_ibu: string;
+  anak_keberapa: string;
+  nik_wali: string;
+  nomor_telepon_rumah: string;
+  nomor_telepon_seluler: string;
+  email: string;
 };
 
 // Tambahkan tipe baru untuk wilayah
