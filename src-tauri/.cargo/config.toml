@@ -1,0 +1,15 @@
+[build]
+jobs = 1
+
+[target.x86_64-pc-windows-msvc]
+rustflags = [
+    "-C", "codegen-units=1",
+    "-C", "panic=abort",
+    "-C", "link-arg=/STACK:8388608",
+    "-C", "link-arg=/HEAP:16777216"
+]
+
+[env]
+RUSTFLAGS = "-C codegen-units=1 -C panic=abort"
+CARGO_BUILD_JOBS = "1"
+CARGO_INCREMENTAL = "0" 

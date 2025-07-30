@@ -45,12 +45,12 @@ pub struct WilayahReferensi {
 pub struct Semester {
     pub semester_id: String,
     pub nama: String,
-    pub tahun_ajaran_id: String,
+    pub tahun_ajaran_id: BigDecimal,
 }
 
 #[derive(sqlx::FromRow, serde::Serialize, Clone)]
 pub struct TahunAjaran {
-    pub tahun_ajaran_id: String,
+    pub tahun_ajaran_id: BigDecimal,
     pub nama: String,
 }
 

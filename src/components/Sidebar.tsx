@@ -1,27 +1,62 @@
-import { Home, Users, ChevronDown, ChevronRight, Book, CheckSquare, MoreHorizontal, Calendar, Clock } from "lucide-react";
+import { Home, Users, ChevronRight, Book, Calendar, Clock, GraduationCap, LogOut, Shield } from "lucide-react";
 import { useState } from "react";
 import clsx from "clsx"; // Utility untuk conditional classes
 import type { Semester, TahunAjaran } from "./PemilihanPenggunaView";
 
 type MenuItem = {
-  id: string;
+  path: string;
   label: string;
-  icon: React.ElementType;
-  path?: string;
-  children?: MenuItem[];
+  icon: React.ComponentType<any>;
+  subItems?: { path: string; label: string }[];
 };
 
-const menuItems: MenuItem[] = [
-  { id: "dashboard", label: "Dashboard", icon: Home, path: "/dashboard" },
+const menuItems = [
   {
-    id: "data-siswa",
-    label: "Data Siswa",
+    path: "/dashboard",
+    label: "Dashboard",
+    icon: Home,
+  },
+  {
+    path: "/siswa",
+    label: "Siswa",
     icon: Users,
-    path: "/siswa", // Base path for parent
-    children: [
-      { id: "daftar-siswa", label: "Daftar Siswa", icon: Book, path: "/siswa/daftar" },
-      { id: "registrasi", label: "Registrasi", icon: CheckSquare, path: "/siswa/registrasi" },
-      { id: "lainnya", label: "Lainnya", icon: MoreHorizontal, path: "/siswa/lainnya" },
+    subItems: [
+      { path: "/siswa/daftar", label: "Daftar Siswa" },
+      { path: "/siswa/registrasi", label: "Registrasi" },
+    ],
+  },
+  {
+    path: "/lulusan",
+    label: "Data Lulusan",
+    icon: GraduationCap,
+    subItems: [
+      { path: "/lulusan/daftar", label: "Daftar Lulusan" },
+      { path: "/lulusan/import", label: "Import Excel" },
+      { path: "/lulusan/excel", label: "Export Template" },
+    ],
+  },
+  {
+    path: "/keluar",
+    label: "Data Siswa Keluar",
+    icon: LogOut,
+    subItems: [
+      { path: "/keluar/daftar", label: "Daftar Siswa Keluar" },
+    ],
+  },
+  {
+    path: "/validasi",
+    label: "Validasi Otomatis",
+    icon: Shield,
+  },
+  {
+    path: "/referensi",
+    label: "Referensi",
+    icon: Book,
+    subItems: [
+      { path: "/referensi/agama", label: "Agama" },
+      { path: "/referensi/pekerjaan", label: "Pekerjaan" },
+      { path: "/referensi/penghasilan", label: "Penghasilan" },
+      { path: "/referensi/wilayah", label: "Wilayah" },
     ],
   },
 ];
@@ -37,15 +72,15 @@ export default function Sidebar({
   semester: Semester | null;
   tahunAjaran: TahunAjaran | null;
 }) {
-  const [openMenus, setOpenMenus] = useState({ "data-siswa": true });
+  const [openMenus, setOpenMenus] = useState<{ [key: string]: boolean }>({ "data-siswa": true });
 
   const toggleMenu = (id: string) => {
     setOpenMenus(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   const renderMenuItem = (item: MenuItem) => {
-    const isOpen = item.children && openMenus[item.id];
-    const isActive = activePath === item.path || (item.children && activePath.startsWith(item.path!));
+    const isOpen = item.subItems && openMenus[item.path];
+    const isActive = activePath === item.path || (item.subItems && activePath.startsWith(item.path));
 
     const menuItemClasses = clsx(
       "flex items-center p-2.5 rounded-md cursor-pointer transition-colors duration-200",
@@ -64,19 +99,18 @@ export default function Sidebar({
     );
 
     return (
-      <div key={item.id} className="mb-1">
-        <div onClick={() => (item.children ? toggleMenu(item.id) : onNavigate(item.path!))} className={menuItemClasses}>
+      <div key={item.path} className="mb-1">
+        <div onClick={() => (item.subItems ? toggleMenu(item.path) : onNavigate(item.path))} className={menuItemClasses}>
           <item.icon size={20} className="mr-3" />
           <span className="flex-1 font-medium">{item.label}</span>
-          {item.children && (
+          {item.subItems && (
             <ChevronRight size={16} className={clsx("transition-transform", { "rotate-90": isOpen })} />
           )}
         </div>
         {isOpen && (
           <div className="ml-6 mt-2 space-y-1">
-            {item.children?.map(child => (
-              <div key={child.id} onClick={() => onNavigate(child.path!)} className={subMenuItemClasses(child.path!)}>
-                <child.icon size={16} className="mr-2 opacity-80" />
+            {item.subItems?.map(child => (
+              <div key={child.path} onClick={() => onNavigate(child.path)} className={subMenuItemClasses(child.path)}>
                 {child.label}
               </div>
             ))}

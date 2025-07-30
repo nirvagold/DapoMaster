@@ -10,11 +10,11 @@ export type Pengguna = {
 export type Semester = {
   semester_id: string;
   nama: string;
-  tahun_ajaran_id: string;
+  tahun_ajaran_id: string; // BigDecimal dari backend akan dikonversi ke string
 };
 
 export type TahunAjaran = {
-  tahun_ajaran_id: string;
+  tahun_ajaran_id: string; // BigDecimal dari backend akan dikonversi ke string
   nama: string;
 };
 

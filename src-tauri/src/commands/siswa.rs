@@ -1,13 +1,13 @@
 use crate::app_state::DbPool;
-use bigdecimal::BigDecimal;
-use serde::Deserialize;
-use sqlx::types::Uuid as SqlxUuid;
 use tauri::{AppHandle, State};
+use serde::{Deserialize, Serialize};
+use sqlx::types::Uuid as SqlxUuid;
+use bigdecimal::BigDecimal;
 use uuid::Uuid;
 use rand::seq::SliceRandom;
 use chrono;
 
-#[derive(sqlx::FromRow, serde::Serialize)]
+#[derive(Serialize, sqlx::FromRow)]
 pub struct PesertaDidik {
     pub peserta_didik_id: SqlxUuid,
     pub nama: String,
@@ -47,7 +47,21 @@ pub struct RegistrasiSiswaPayload {
 pub async fn get_total_siswa(app: AppHandle, search: Option<String>, rombel_id: Option<SqlxUuid>, state: State<'_, DbPool>) -> Result<i64, String> {
     crate::emit_log(&app, &format!("CMD: get_total_siswa - Counting with search: {:?}, rombel: {:?}", search, rombel_id));
     let search_term = format!("%{}%", search.unwrap_or_default());
-    let base_query = if rombel_id.is_some() { "SELECT COUNT(pd.*) FROM peserta_didik pd JOIN anggota_rombel ar ON pd.peserta_didik_id = ar.peserta_didik_id WHERE (pd.nama ILIKE $1 OR pd.nisn ILIKE $1) AND ar.rombongan_belajar_id = $2" } else { "SELECT COUNT(*) FROM peserta_didik pd WHERE (pd.nama ILIKE $1 OR pd.nisn ILIKE $1)" };
+    let base_query = if rombel_id.is_some() { 
+        "SELECT COUNT(pd.*) FROM peserta_didik pd 
+         JOIN anggota_rombel ar ON pd.peserta_didik_id = ar.peserta_didik_id 
+         JOIN registrasi_peserta_didik rpd ON pd.peserta_didik_id = rpd.peserta_didik_id 
+         WHERE (pd.nama ILIKE $1 OR pd.nisn ILIKE $1) 
+         AND ar.rombongan_belajar_id = $2 
+         AND pd.soft_delete = 0 
+         AND rpd.jenis_keluar_id IS NULL" 
+    } else { 
+        "SELECT COUNT(pd.*) FROM peserta_didik pd 
+         JOIN registrasi_peserta_didik rpd ON pd.peserta_didik_id = rpd.peserta_didik_id 
+         WHERE (pd.nama ILIKE $1 OR pd.nisn ILIKE $1) 
+         AND pd.soft_delete = 0 
+         AND rpd.jenis_keluar_id IS NULL" 
+    };
     let mut query = sqlx::query_scalar(base_query).bind(&search_term);
     if let Some(id) = rombel_id { query = query.bind(id); }
     query.fetch_one(&state.pool).await.map_err(|e| e.to_string())
@@ -58,7 +72,23 @@ pub async fn get_daftar_siswa(app: AppHandle, page: usize, page_size: usize, sea
     crate::emit_log(&app, &format!("CMD: get_daftar_siswa - Fetching page {} with search: {:?}, rombel: {:?}", page, search, rombel_id));
     let offset = (page - 1) * page_size;
     let search_term = format!("%{}%", search.unwrap_or_default());
-    let (query_str, use_rombel_filter) = if let Some(_id) = rombel_id { ("SELECT pd.* FROM peserta_didik pd JOIN anggota_rombel ar ON pd.peserta_didik_id = ar.peserta_didik_id WHERE (pd.nama ILIKE $1 OR pd.nisn ILIKE $1) AND ar.rombongan_belajar_id = $4 ORDER BY pd.nama LIMIT $2 OFFSET $3".to_string(), true) } else { ("SELECT * FROM peserta_didik WHERE (nama ILIKE $1 OR nisn ILIKE $1) ORDER BY nama LIMIT $2 OFFSET $3".to_string(), false) };
+    let (query_str, use_rombel_filter) = if let Some(_id) = rombel_id { 
+        ("SELECT pd.* FROM peserta_didik pd 
+          JOIN anggota_rombel ar ON pd.peserta_didik_id = ar.peserta_didik_id 
+          JOIN registrasi_peserta_didik rpd ON pd.peserta_didik_id = rpd.peserta_didik_id 
+          WHERE (pd.nama ILIKE $1 OR pd.nisn ILIKE $1) 
+          AND ar.rombongan_belajar_id = $4 
+          AND pd.soft_delete = 0 
+          AND rpd.jenis_keluar_id IS NULL 
+          ORDER BY pd.nama LIMIT $2 OFFSET $3".to_string(), true) 
+    } else { 
+        ("SELECT pd.* FROM peserta_didik pd 
+          JOIN registrasi_peserta_didik rpd ON pd.peserta_didik_id = rpd.peserta_didik_id 
+          WHERE (pd.nama ILIKE $1 OR pd.nisn ILIKE $1) 
+          AND pd.soft_delete = 0 
+          AND rpd.jenis_keluar_id IS NULL 
+          ORDER BY pd.nama LIMIT $2 OFFSET $3".to_string(), false) 
+    };
     let mut query = sqlx::query_as::<_, PesertaDidik>(&query_str).bind(&search_term).bind(page_size as i64).bind(offset as i64);
     if use_rombel_filter { if let Some(id) = rombel_id { query = query.bind(id); } }
     query.fetch_all(&state.pool).await.map_err(|e| e.to_string())

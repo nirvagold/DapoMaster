@@ -1,9 +1,12 @@
 import { useState } from "react";
 import PemilihanPenggunaView, { Pengguna, Semester, TahunAjaran } from "./components/PemilihanPenggunaView";
-import LogPanel from "./components/LogPanel";
 import Sidebar from "./components/Sidebar";
 import DashboardView from "./components/DashboardView";
 import SiswaView from "./components/SiswaView";
+import LulusanView from "./components/LulusanView";
+import KeluarView from "./components/KeluarView";
+import ValidasiView from "./components/ValidasiView";
+import LogPanel from "./components/LogPanel";
 
 function App() {
   const [user, setUser] = useState<Pengguna | null>(null);
@@ -17,6 +20,23 @@ function App() {
       const pageTitle = page.charAt(0).toUpperCase() + page.slice(1);
       return <SiswaView pageTitle={pageTitle} user={user} semester={selectedSemester} tahunAjaran={selectedTahunAjaran} />;
     }
+    
+    if (activePath.startsWith("/lulusan")) {
+      const page = activePath.split("/")[2] || "daftar";
+      const pageTitle = page.charAt(0).toUpperCase() + page.slice(1);
+      return <LulusanView pageTitle={pageTitle} semester={selectedSemester} tahunAjaran={selectedTahunAjaran} />;
+    }
+    
+    if (activePath.startsWith("/keluar")) {
+      const page = activePath.split("/")[2] || "daftar";
+      const pageTitle = page.charAt(0).toUpperCase() + page.slice(1);
+      return <KeluarView pageTitle={pageTitle} semester={selectedSemester} tahunAjaran={selectedTahunAjaran} />;
+    }
+    
+    if (activePath === "/validasi") {
+      return <ValidasiView user={user} />;
+    }
+    
     return <DashboardView semester={selectedSemester} tahunAjaran={selectedTahunAjaran} />;
   };
 
@@ -28,9 +48,6 @@ function App() {
             setUser(u); 
             setSelectedSemester(semester);
             setSelectedTahunAjaran(tahunAjaran);
-            console.log("User terpilih:", u);
-            console.log("Semester terpilih:", semester);
-            console.log("Tahun Ajaran terpilih:", tahunAjaran);
           }} />
         </div>
       ) : (

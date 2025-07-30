@@ -1,6 +1,5 @@
 use crate::emit_log;
-use crate::tricky_method;
-use tauri::{App, Manager, WebviewUrl, Emitter};
+use tauri::{App, Manager, WebviewUrl};
 
 pub fn setup_app(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     let app_handle = app.handle().clone();

@@ -1,0 +1,805 @@
+use crate::app_state::DbPool;
+use tauri::{AppHandle, State};
+use serde::{Serialize, Deserialize};
+use bigdecimal::BigDecimal;
+use rand::seq::SliceRandom;
+use sqlx::types::Uuid as SqlxUuid;
+use std::collections::HashMap;
+use std::sync::Mutex;
+use chrono::{DateTime, Utc};
+
+// Struktur untuk menyimpan hasil validasi sebagai data aplikasi
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ValidasiSession {
+    pub session_id: String,
+    pub timestamp: DateTime<Utc>,
+    pub total_processed: i32,
+    pub success_count: i32,
+    pub error_count: i32,
+    pub details: Vec<ValidasiDetail>,
+    pub status: ValidasiStatus,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub enum ValidasiStatus {
+    Running,
+    Completed,
+    Failed,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ValidasiDetail {
+    pub peserta_didik_id: String,
+    pub nama: String,
+    pub field: String,
+    pub action: String,
+    pub success: bool,
+    pub message: String,
+    pub old_value: Option<String>,
+    pub new_value: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct ValidasiResult {
+    pub success: bool,
+    pub message: String,
+    pub session_id: String,
+    pub total_processed: i32,
+    pub success_count: i32,
+    pub error_count: i32,
+    pub details: Vec<ValidasiDetail>,
+}
+
+// Global state untuk menyimpan session validasi
+pub struct ValidasiSessions {
+    sessions: Mutex<HashMap<String, ValidasiSession>>,
+}
+
+impl ValidasiSessions {
+    pub fn new() -> Self {
+        Self {
+            sessions: Mutex::new(HashMap::new()),
+        }
+    }
+
+    pub fn add_session(&self, session: ValidasiSession) {
+        let mut sessions = self.sessions.lock().unwrap();
+        sessions.insert(session.session_id.clone(), session);
+    }
+
+    pub fn get_session(&self, session_id: &str) -> Option<ValidasiSession> {
+        let sessions = self.sessions.lock().unwrap();
+        sessions.get(session_id).cloned()
+    }
+
+    pub fn get_all_sessions(&self) -> Vec<ValidasiSession> {
+        let sessions = self.sessions.lock().unwrap();
+        sessions.values().cloned().collect()
+    }
+
+    pub fn clear_old_sessions(&self, older_than_hours: i64) {
+        let mut sessions = self.sessions.lock().unwrap();
+        let cutoff = Utc::now() - chrono::Duration::hours(older_than_hours);
+        sessions.retain(|_, session| session.timestamp > cutoff);
+    }
+}
+
+// Initialize global state
+lazy_static::lazy_static! {
+    static ref VALIDASI_SESSIONS: ValidasiSessions = ValidasiSessions::new();
+}
+
+#[tauri::command]
+pub async fn auto_fix_validasi_errors(
+    app: AppHandle,
+    state: State<'_, DbPool>,
+) -> Result<ValidasiResult, String> {
+    crate::emit_log(&app, "CMD: auto_fix_validasi_errors - Memulai perbaikan otomatis validasi");
+    
+    // Generate session ID
+    let session_id = uuid::Uuid::new_v4().to_string();
+    let timestamp = Utc::now();
+    
+    // Create initial session
+    let mut session = ValidasiSession {
+        session_id: session_id.clone(),
+        timestamp,
+        total_processed: 0,
+        success_count: 0,
+        error_count: 0,
+        details: Vec::new(),
+        status: ValidasiStatus::Running,
+    };
+    
+    // Add session to global state
+    VALIDASI_SESSIONS.add_session(session.clone());
+    
+    let mut tx = state.pool.begin().await.map_err(|e| e.to_string())?;
+    let mut total_processed = 0;
+    let mut success_count = 0;
+    let mut error_count = 0;
+    let mut details = Vec::new();
+
+    // 1. Perbaiki NIK Ayah (hapus jika format tidak valid)
+    let nik_ayah_result = fix_nik_ayah(&app, &mut tx).await?;
+    total_processed += nik_ayah_result.total_processed;
+    success_count += nik_ayah_result.success_count;
+    error_count += nik_ayah_result.error_count;
+    details.extend(nik_ayah_result.details);
+
+    // 2. Perbaiki Hobby (isi random dari database)
+    let hobby_result = fix_hobby(&app, &mut tx).await?;
+    total_processed += hobby_result.total_processed;
+    success_count += hobby_result.success_count;
+    error_count += hobby_result.error_count;
+    details.extend(hobby_result.details);
+
+    // 3. Perbaiki Cita-cita (isi random dari database)
+    let cita_result = fix_cita_cita(&app, &mut tx).await?;
+    total_processed += cita_result.total_processed;
+    success_count += cita_result.success_count;
+    error_count += cita_result.error_count;
+    details.extend(cita_result.details);
+
+    // 4. Perbaiki Tahun Lahir Ayah (hapus jika ada spasi/error)
+    let tahun_ayah_result = fix_tahun_lahir_ayah(&app, &mut tx).await?;
+    total_processed += tahun_ayah_result.total_processed;
+    success_count += tahun_ayah_result.success_count;
+    error_count += tahun_ayah_result.error_count;
+    details.extend(tahun_ayah_result.details);
+
+    // 5. Perbaiki NIK Wali (hapus jika format tidak valid)
+    let nik_wali_result = fix_nik_wali(&app, &mut tx).await?;
+    total_processed += nik_wali_result.total_processed;
+    success_count += nik_wali_result.success_count;
+    error_count += nik_wali_result.error_count;
+    details.extend(nik_wali_result.details);
+
+    // 6. Perbaiki Tahun Lahir Wali (hapus jika ada spasi/error)
+    let tahun_wali_result = fix_tahun_lahir_wali(&app, &mut tx).await?;
+    total_processed += tahun_wali_result.total_processed;
+    success_count += tahun_wali_result.success_count;
+    error_count += tahun_wali_result.error_count;
+    details.extend(tahun_wali_result.details);
+
+    // 7. Warning untuk KPS/PKH (tidak diubah, hanya warning)
+    let kps_result = check_kps_pkh(&app, &mut tx).await?;
+    total_processed += kps_result.total_processed;
+    details.extend(kps_result.details);
+
+    tx.commit().await.map_err(|e| e.to_string())?;
+
+    // Update session dengan hasil final
+    session.total_processed = total_processed;
+    session.success_count = success_count;
+    session.error_count = error_count;
+    session.details = details.clone();
+    session.status = if error_count == 0 { ValidasiStatus::Completed } else { ValidasiStatus::Failed };
+    
+    // Update session di global state
+    VALIDASI_SESSIONS.add_session(session);
+
+    let message = format!(
+        "Perbaikan otomatis selesai. Total diproses: {}, Berhasil: {}, Error: {}",
+        total_processed, success_count, error_count
+    );
+
+    crate::emit_log(&app, &format!("CMD: auto_fix_validasi_errors - {}", message));
+
+    Ok(ValidasiResult {
+        success: error_count == 0,
+        message,
+        session_id,
+        total_processed,
+        success_count,
+        error_count,
+        details,
+    })
+}
+
+// Command untuk mendapatkan semua session validasi
+#[tauri::command]
+pub async fn get_validasi_sessions() -> Result<Vec<ValidasiSession>, String> {
+    let sessions = VALIDASI_SESSIONS.get_all_sessions();
+    Ok(sessions)
+}
+
+// Command untuk mendapatkan session validasi tertentu
+#[tauri::command]
+pub async fn get_validasi_session(session_id: String) -> Result<Option<ValidasiSession>, String> {
+    let session = VALIDASI_SESSIONS.get_session(&session_id);
+    Ok(session)
+}
+
+// Command untuk menghapus session validasi lama
+#[tauri::command]
+pub async fn cleanup_old_validasi_sessions(hours: i64) -> Result<String, String> {
+    VALIDASI_SESSIONS.clear_old_sessions(hours);
+    Ok(format!("Berhasil membersihkan session validasi yang lebih lama dari {} jam", hours))
+}
+
+// Command untuk mendapatkan statistik validasi
+#[tauri::command]
+pub async fn get_validasi_stats(
+    app: AppHandle,
+    state: State<'_, DbPool>,
+) -> Result<serde_json::Value, String> {
+    crate::emit_log(&app, "CMD: get_validasi_stats - Mengambil statistik validasi");
+
+    // Query untuk menghitung berbagai jenis error validasi
+    let stats = sqlx::query_as::<_, (String, i64)>(
+        "SELECT 
+            CASE 
+                WHEN table = 'peserta_didik' AND keterangan LIKE '%NIK ayah%' THEN 'nik_ayah'
+                WHEN table = 'peserta_didik' AND keterangan LIKE '%hobby%' THEN 'hobby'
+                WHEN table = 'peserta_didik' AND keterangan LIKE '%cita-cita%' THEN 'cita_cita'
+                WHEN table = 'peserta_didik' AND keterangan LIKE '%tahun lahir ayah%' THEN 'tahun_lahir_ayah'
+                WHEN table = 'peserta_didik' AND keterangan LIKE '%NIK wali%' THEN 'nik_wali'
+                WHEN table = 'peserta_didik' AND keterangan LIKE '%tahun lahir wali%' THEN 'tahun_lahir_wali'
+                WHEN table = 'peserta_didik' AND keterangan LIKE '%KPS%' THEN 'kps_pkh'
+                WHEN table = 'peserta_didik_longitudinal' THEN 'longitudinal'
+                WHEN table = 'registrasi_peserta_didik' THEN 'registrasi'
+                ELSE 'lainnya'
+            END as kategori,
+            COUNT(*) as jumlah
+         FROM validasi 
+         GROUP BY kategori
+         ORDER BY jumlah DESC"
+    )
+    .fetch_all(&state.pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let mut result = serde_json::Map::new();
+    for (kategori, jumlah) in stats {
+        result.insert(kategori, serde_json::Value::Number(jumlah.into()));
+    }
+
+    crate::emit_log(&app, "CMD: get_validasi_stats - Statistik berhasil diambil");
+    Ok(serde_json::Value::Object(result))
+}
+
+// Helper function untuk membuat ValidasiDetail dengan old_value dan new_value
+fn create_validasi_detail(
+    peserta_didik_id: String,
+    nama: String,
+    field: String,
+    action: String,
+    success: bool,
+    message: String,
+    old_value: Option<String>,
+    new_value: Option<String>,
+) -> ValidasiDetail {
+    ValidasiDetail {
+        peserta_didik_id,
+        nama,
+        field,
+        action,
+        success,
+        message,
+        old_value,
+        new_value,
+    }
+}
+
+// 1. Perbaiki NIK Ayah - hapus jika format tidak valid (kurang dari 16 digit atau hanya angka)
+async fn fix_nik_ayah(
+    app: &AppHandle,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+) -> Result<ValidasiResult, String> {
+    crate::emit_log(app, "CMD: fix_nik_ayah - Memperbaiki NIK Ayah");
+    
+    // Query untuk mendapatkan siswa dengan NIK ayah yang tidak valid
+    let invalid_nik_ayah = sqlx::query_as::<_, (SqlxUuid, String, Option<String>)>(
+        "SELECT peserta_didik_id, nama, nik_ayah 
+         FROM peserta_didik 
+         WHERE nik_ayah IS NOT NULL 
+         AND nik_ayah != '' 
+         AND (LENGTH(TRIM(nik_ayah)) < 16 OR nik_ayah ~ '^[0-9]+$' = false OR LENGTH(TRIM(nik_ayah)) = 4)"
+    )
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let mut success_count = 0;
+    let mut error_count = 0;
+    let mut details = Vec::new();
+
+    for (peserta_didik_id, nama, nik_ayah) in &invalid_nik_ayah {
+        let old_value = nik_ayah.clone();
+        
+        match sqlx::query(
+            "UPDATE peserta_didik SET nik_ayah = NULL WHERE peserta_didik_id = $1"
+        )
+        .bind(peserta_didik_id)
+        .execute(&mut **tx)
+        .await
+        {
+            Ok(_) => {
+                success_count += 1;
+                details.push(create_validasi_detail(
+                    peserta_didik_id.to_string(),
+                    nama.clone(),
+                    "NIK Ayah".to_string(),
+                    "Dihapus (format tidak valid)".to_string(),
+                    true,
+                    format!("NIK Ayah '{}' dihapus karena format tidak valid", old_value.as_ref().unwrap_or(&String::new())),
+                    old_value,
+                    None,
+                ));
+            }
+            Err(e) => {
+                error_count += 1;
+                details.push(create_validasi_detail(
+                    peserta_didik_id.to_string(),
+                    nama.clone(),
+                    "NIK Ayah".to_string(),
+                    "Gagal dihapus".to_string(),
+                    false,
+                    e.to_string(),
+                    old_value,
+                    None,
+                ));
+            }
+        }
+    }
+
+    Ok(ValidasiResult {
+        success: error_count == 0,
+        message: format!("NIK Ayah: {} berhasil diperbaiki, {} error", success_count, error_count),
+        session_id: String::new(),
+        total_processed: invalid_nik_ayah.len() as i32,
+        success_count,
+        error_count,
+        details,
+    })
+}
+
+// 2. Perbaiki Hobby - isi random dari database
+async fn fix_hobby(
+    app: &AppHandle,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+) -> Result<ValidasiResult, String> {
+    crate::emit_log(app, "CMD: fix_hobby - Memperbaiki Hobby");
+    
+    // Ambil semua hobby dari database
+    let all_hobbies = sqlx::query_as::<_, (BigDecimal,)>(
+        "SELECT id_hobby FROM ref.jenis_hobby ORDER BY id_hobby"
+    )
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    if all_hobbies.is_empty() {
+        return Ok(ValidasiResult {
+            success: true,
+            message: "Tidak ada data hobby di database".to_string(),
+            session_id: String::new(),
+            total_processed: 0,
+            success_count: 0,
+            error_count: 0,
+            details: Vec::new(),
+        });
+    }
+
+    // Query untuk mendapatkan siswa tanpa hobby
+    let siswa_tanpa_hobby = sqlx::query_as::<_, (SqlxUuid, String)>(
+        "SELECT peserta_didik_id, nama 
+         FROM peserta_didik 
+         WHERE id_hobby IS NULL OR id_hobby = ''"
+    )
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let mut success_count = 0;
+    let mut error_count = 0;
+    let mut details = Vec::new();
+
+    for (peserta_didik_id, nama) in &siswa_tanpa_hobby {
+        // Pilih hobby random
+        let random_hobby = all_hobbies.choose(&mut rand::thread_rng()).unwrap();
+        
+        match sqlx::query(
+            "UPDATE peserta_didik SET id_hobby = $1 WHERE peserta_didik_id = $2"
+        )
+        .bind(&random_hobby.0)
+        .bind(peserta_didik_id)
+        .execute(&mut **tx)
+        .await
+        {
+            Ok(_) => {
+                success_count += 1;
+                details.push(create_validasi_detail(
+                    peserta_didik_id.to_string(),
+                    nama.clone(),
+                    "Hobby".to_string(),
+                    "Diisi random".to_string(),
+                    true,
+                    format!("Hobby diisi dengan ID: {}", random_hobby.0),
+                    None,
+                    Some(random_hobby.0.to_string()),
+                ));
+            }
+            Err(e) => {
+                error_count += 1;
+                details.push(create_validasi_detail(
+                    peserta_didik_id.to_string(),
+                    nama.clone(),
+                    "Hobby".to_string(),
+                    "Gagal diisi".to_string(),
+                    false,
+                    e.to_string(),
+                    None,
+                    None,
+                ));
+            }
+        }
+    }
+
+    Ok(ValidasiResult {
+        success: error_count == 0,
+        message: format!("Hobby: {} berhasil diperbaiki, {} error", success_count, error_count),
+        session_id: String::new(),
+        total_processed: siswa_tanpa_hobby.len() as i32,
+        success_count,
+        error_count,
+        details,
+    })
+}
+
+// 3. Perbaiki Cita-cita - isi random dari database
+async fn fix_cita_cita(
+    app: &AppHandle,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+) -> Result<ValidasiResult, String> {
+    crate::emit_log(app, "CMD: fix_cita_cita - Memperbaiki Cita-cita");
+    
+    // Ambil semua cita-cita dari database
+    let all_citas = sqlx::query_as::<_, (BigDecimal,)>(
+        "SELECT id_cita FROM ref.jenis_cita ORDER BY id_cita"
+    )
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    if all_citas.is_empty() {
+        return Ok(ValidasiResult {
+            success: true,
+            message: "Tidak ada data cita-cita di database".to_string(),
+            session_id: String::new(),
+            total_processed: 0,
+            success_count: 0,
+            error_count: 0,
+            details: Vec::new(),
+        });
+    }
+
+    // Query untuk mendapatkan siswa tanpa cita-cita
+    let siswa_tanpa_cita = sqlx::query_as::<_, (SqlxUuid, String)>(
+        "SELECT peserta_didik_id, nama 
+         FROM peserta_didik 
+         WHERE id_cita IS NULL OR id_cita = ''"
+    )
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let mut success_count = 0;
+    let mut error_count = 0;
+    let mut details = Vec::new();
+
+    for (peserta_didik_id, nama) in &siswa_tanpa_cita {
+        // Pilih cita-cita random
+        let random_cita = all_citas.choose(&mut rand::thread_rng()).unwrap();
+        
+        match sqlx::query(
+            "UPDATE peserta_didik SET id_cita = $1 WHERE peserta_didik_id = $2"
+        )
+        .bind(&random_cita.0)
+        .bind(peserta_didik_id)
+        .execute(&mut **tx)
+        .await
+        {
+            Ok(_) => {
+                success_count += 1;
+                details.push(create_validasi_detail(
+                    peserta_didik_id.to_string(),
+                    nama.clone(),
+                    "Cita-cita".to_string(),
+                    "Diisi random".to_string(),
+                    true,
+                    format!("Cita-cita diisi dengan ID: {}", random_cita.0),
+                    None,
+                    Some(random_cita.0.to_string()),
+                ));
+            }
+            Err(e) => {
+                error_count += 1;
+                details.push(create_validasi_detail(
+                    peserta_didik_id.to_string(),
+                    nama.clone(),
+                    "Cita-cita".to_string(),
+                    "Gagal diisi".to_string(),
+                    false,
+                    e.to_string(),
+                    None,
+                    None,
+                ));
+            }
+        }
+    }
+
+    Ok(ValidasiResult {
+        success: error_count == 0,
+        message: format!("Cita-cita: {} berhasil diperbaiki, {} error", success_count, error_count),
+        session_id: String::new(),
+        total_processed: siswa_tanpa_cita.len() as i32,
+        success_count,
+        error_count,
+        details,
+    })
+}
+
+// 4. Perbaiki Tahun Lahir Ayah - hapus jika ada spasi atau format tidak valid
+async fn fix_tahun_lahir_ayah(
+    app: &AppHandle,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+) -> Result<ValidasiResult, String> {
+    crate::emit_log(app, "CMD: fix_tahun_lahir_ayah - Memperbaiki Tahun Lahir Ayah");
+    
+    // Query untuk mendapatkan siswa dengan tahun lahir ayah yang tidak valid
+    let invalid_tahun_ayah = sqlx::query_as::<_, (SqlxUuid, String, Option<String>)>(
+        "SELECT peserta_didik_id, nama, tahun_lahir_ayah 
+         FROM peserta_didik 
+         WHERE tahun_lahir_ayah IS NOT NULL 
+         AND tahun_lahir_ayah != '' 
+         AND (tahun_lahir_ayah LIKE '% %' OR tahun_lahir_ayah ~ '^[0-9]{4}$' = false OR LENGTH(TRIM(tahun_lahir_ayah)) != 4)"
+    )
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let mut success_count = 0;
+    let mut error_count = 0;
+    let mut details = Vec::new();
+
+    for (peserta_didik_id, nama, tahun_lahir_ayah) in &invalid_tahun_ayah {
+        let old_value = tahun_lahir_ayah.clone();
+        
+        match sqlx::query(
+            "UPDATE peserta_didik SET tahun_lahir_ayah = NULL WHERE peserta_didik_id = $1"
+        )
+        .bind(peserta_didik_id)
+        .execute(&mut **tx)
+        .await
+        {
+            Ok(_) => {
+                success_count += 1;
+                details.push(create_validasi_detail(
+                    peserta_didik_id.to_string(),
+                    nama.clone(),
+                    "Tahun Lahir Ayah".to_string(),
+                    "Dihapus (format tidak valid)".to_string(),
+                    true,
+                    format!("Tahun Lahir Ayah '{}' dihapus karena format tidak valid", old_value.as_ref().unwrap_or(&String::new())),
+                    old_value,
+                    None,
+                ));
+            }
+            Err(e) => {
+                error_count += 1;
+                details.push(create_validasi_detail(
+                    peserta_didik_id.to_string(),
+                    nama.clone(),
+                    "Tahun Lahir Ayah".to_string(),
+                    "Gagal dihapus".to_string(),
+                    false,
+                    e.to_string(),
+                    old_value,
+                    None,
+                ));
+            }
+        }
+    }
+
+    Ok(ValidasiResult {
+        success: error_count == 0,
+        message: format!("Tahun Lahir Ayah: {} berhasil diperbaiki, {} error", success_count, error_count),
+        session_id: String::new(),
+        total_processed: invalid_tahun_ayah.len() as i32,
+        success_count,
+        error_count,
+        details,
+    })
+}
+
+// 5. Perbaiki NIK Wali - hapus jika format tidak valid
+async fn fix_nik_wali(
+    app: &AppHandle,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+) -> Result<ValidasiResult, String> {
+    crate::emit_log(app, "CMD: fix_nik_wali - Memperbaiki NIK Wali");
+    
+    // Query untuk mendapatkan siswa dengan NIK wali yang tidak valid
+    let invalid_nik_wali = sqlx::query_as::<_, (SqlxUuid, String, Option<String>)>(
+        "SELECT peserta_didik_id, nama, nik_wali 
+         FROM peserta_didik 
+         WHERE nik_wali IS NOT NULL 
+         AND nik_wali != '' 
+         AND (LENGTH(TRIM(nik_wali)) < 16 OR nik_wali ~ '^[0-9]+$' = false OR LENGTH(TRIM(nik_wali)) = 4)"
+    )
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let mut success_count = 0;
+    let mut error_count = 0;
+    let mut details = Vec::new();
+
+    for (peserta_didik_id, nama, nik_wali) in &invalid_nik_wali {
+        let old_value = nik_wali.clone();
+        
+        match sqlx::query(
+            "UPDATE peserta_didik SET nik_wali = NULL WHERE peserta_didik_id = $1"
+        )
+        .bind(peserta_didik_id)
+        .execute(&mut **tx)
+        .await
+        {
+            Ok(_) => {
+                success_count += 1;
+                details.push(create_validasi_detail(
+                    peserta_didik_id.to_string(),
+                    nama.clone(),
+                    "NIK Wali".to_string(),
+                    "Dihapus (format tidak valid)".to_string(),
+                    true,
+                    format!("NIK Wali '{}' dihapus karena format tidak valid", old_value.as_ref().unwrap_or(&String::new())),
+                    old_value,
+                    None,
+                ));
+            }
+            Err(e) => {
+                error_count += 1;
+                details.push(create_validasi_detail(
+                    peserta_didik_id.to_string(),
+                    nama.clone(),
+                    "NIK Wali".to_string(),
+                    "Gagal dihapus".to_string(),
+                    false,
+                    e.to_string(),
+                    old_value,
+                    None,
+                ));
+            }
+        }
+    }
+
+    Ok(ValidasiResult {
+        success: error_count == 0,
+        message: format!("NIK Wali: {} berhasil diperbaiki, {} error", success_count, error_count),
+        session_id: String::new(),
+        total_processed: invalid_nik_wali.len() as i32,
+        success_count,
+        error_count,
+        details,
+    })
+}
+
+// 6. Perbaiki Tahun Lahir Wali - hapus jika ada spasi atau format tidak valid
+async fn fix_tahun_lahir_wali(
+    app: &AppHandle,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+) -> Result<ValidasiResult, String> {
+    crate::emit_log(app, "CMD: fix_tahun_lahir_wali - Memperbaiki Tahun Lahir Wali");
+    
+    // Query untuk mendapatkan siswa dengan tahun lahir wali yang tidak valid
+    let invalid_tahun_wali = sqlx::query_as::<_, (SqlxUuid, String, Option<String>)>(
+        "SELECT peserta_didik_id, nama, tahun_lahir_wali 
+         FROM peserta_didik 
+         WHERE tahun_lahir_wali IS NOT NULL 
+         AND tahun_lahir_wali != '' 
+         AND (tahun_lahir_wali LIKE '% %' OR tahun_lahir_wali ~ '^[0-9]{4}$' = false OR LENGTH(TRIM(tahun_lahir_wali)) != 4)"
+    )
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let mut success_count = 0;
+    let mut error_count = 0;
+    let mut details = Vec::new();
+
+    for (peserta_didik_id, nama, tahun_lahir_wali) in &invalid_tahun_wali {
+        let old_value = tahun_lahir_wali.clone();
+        
+        match sqlx::query(
+            "UPDATE peserta_didik SET tahun_lahir_wali = NULL WHERE peserta_didik_id = $1"
+        )
+        .bind(peserta_didik_id)
+        .execute(&mut **tx)
+        .await
+        {
+            Ok(_) => {
+                success_count += 1;
+                details.push(create_validasi_detail(
+                    peserta_didik_id.to_string(),
+                    nama.clone(),
+                    "Tahun Lahir Wali".to_string(),
+                    "Dihapus (format tidak valid)".to_string(),
+                    true,
+                    format!("Tahun Lahir Wali '{}' dihapus karena format tidak valid", old_value.as_ref().unwrap_or(&String::new())),
+                    old_value,
+                    None,
+                ));
+            }
+            Err(e) => {
+                error_count += 1;
+                details.push(create_validasi_detail(
+                    peserta_didik_id.to_string(),
+                    nama.clone(),
+                    "Tahun Lahir Wali".to_string(),
+                    "Gagal dihapus".to_string(),
+                    false,
+                    e.to_string(),
+                    old_value,
+                    None,
+                ));
+            }
+        }
+    }
+
+    Ok(ValidasiResult {
+        success: error_count == 0,
+        message: format!("Tahun Lahir Wali: {} berhasil diperbaiki, {} error", success_count, error_count),
+        session_id: String::new(),
+        total_processed: invalid_tahun_wali.len() as i32,
+        success_count,
+        error_count,
+        details,
+    })
+}
+
+// 7. Check KPS/PKH - hanya warning, tidak diubah
+async fn check_kps_pkh(
+    app: &AppHandle,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+) -> Result<ValidasiResult, String> {
+    crate::emit_log(app, "CMD: check_kps_pkh - Mengecek KPS/PKH");
+    
+    // Query untuk mendapatkan siswa penerima KPS/PKH tanpa nomor
+    let kps_pkh_issues = sqlx::query_as::<_, (SqlxUuid, String, Option<String>)>(
+        "SELECT peserta_didik_id, nama, nomor_kps 
+         FROM peserta_didik 
+         WHERE penerima_kps = 'Ya' 
+         AND (nomor_kps IS NULL OR nomor_kps = '' OR LENGTH(TRIM(nomor_kps)) < 5)"
+    )
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let mut details = Vec::new();
+
+    for (peserta_didik_id, nama, nomor_kps) in &kps_pkh_issues {
+        details.push(create_validasi_detail(
+            peserta_didik_id.to_string(),
+            nama.clone(),
+            "KPS/PKH".to_string(),
+            "Warning (perlu nomor KPS)".to_string(),
+            false,
+            format!("Penerima KPS/PKH 'Ya' tapi nomor KPS kosong atau tidak valid: '{}'", nomor_kps.as_ref().unwrap_or(&String::new())),
+            nomor_kps.clone(),
+            None,
+        ));
+    }
+
+    Ok(ValidasiResult {
+        success: true,
+        message: format!("KPS/PKH: {} siswa perlu nomor KPS yang valid", kps_pkh_issues.len()),
+        session_id: String::new(),
+        total_processed: kps_pkh_issues.len() as i32,
+        success_count: 0,
+        error_count: kps_pkh_issues.len() as i32,
+        details,
+    })
+}

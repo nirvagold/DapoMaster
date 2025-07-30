@@ -3,6 +3,8 @@ name = "dapomaster"
 version = "0.1.0"
 description = "A Tauri App"
 authors = ["you"]
+license = ""
+repository = ""
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -15,30 +17,54 @@ name = "dapomaster_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+tauri-build = { version = "2.0.0", features = [] }
 
 [dependencies]
-sqlx = { version = "0.7", features = ["runtime-tokio-native-tls", "postgres", "macros", "uuid", "chrono", "bigdecimal"] }
-chrono = { version = "0.4", features = ["serde"] }
-tokio = { version = "1", features = ["full"] }
-tauri = { version = "2.6.2", features = [] }
-tauri-plugin-opener = "2"
+tauri = { version = "2.0.0", features = [] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tauri-plugin-store = "2"
-is_elevated = "0.1"
-bigdecimal = { version = "0.3.1", features = ["serde"] }
+tokio = { version = "1.0", features = ["rt", "macros"] }
+sqlx = { version = "0.7", features = ["runtime-tokio-native-tls", "postgres", "macros", "uuid", "chrono", "bigdecimal"] }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
+bigdecimal = { version = "0.3", features = ["serde"] }
 rand = "0.8"
-filetime = "0.2.25"
-sysinfo = "0.36.1"
+calamine = "0.22"
+rust_xlsxwriter = "0.42"
+rfd = "0.15"
+tauri-plugin-dialog = "2"
+tauri-plugin-store = "2"
+tauri-plugin-opener = "2"
+dirs = "5.0"
+filetime = "0.2"
+is_elevated = "0.1"
 wait-timeout = "0.2"
+lazy_static = "1.4"
 
-[dependencies.uuid]
-version = "1.17.0"
-features = [
-    "v4",                # Tambahkan fitur v4 untuk Uuid::new_v4()
-    "serde",             # Untuk serialisasi/deserialisasi
-    "fast-rng",          # RNG yang lebih cepat (disarankan oleh crate `uuid`)
-    "macro-diagnostics", # Pesan error yang lebih baik
-]
+[features]
+# this feature is used for production builds or when `devPath` points to the filesystem
+# DO NOT REMOVE!!
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.dev]
+opt-level = 0
+debug = true
+split-debuginfo = "unpacked"
+debug-assertions = true
+overflow-checks = true
+lto = false
+panic = "unwind"
+codegen-units = 1
+incremental = false
+
+[profile.release]
+opt-level = 3
+debug = false
+split-debuginfo = "packed"
+debug-assertions = false
+overflow-checks = false
+lto = true
+panic = "abort"
+codegen-units = 1
+incremental = false
 

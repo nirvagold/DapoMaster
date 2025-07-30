@@ -321,10 +321,6 @@ export default function SiswaView({ pageTitle, user, semester, tahunAjaran }: {
   );
 
   // Handler untuk form registrasi
-  const handleInputChangeRegistrasi = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormDataRegistrasi((prev: SiswaFormData) => ({ ...prev, [name]: value }));
-  };
   const handleCheckboxChangeRegistrasi = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, checked } = e.target;
     setFormDataRegistrasi((prev: SiswaFormData) => ({ ...prev, [name]: checked }));
@@ -505,16 +501,16 @@ export default function SiswaView({ pageTitle, user, semester, tahunAjaran }: {
   };
 
   // Handler perubahan desa/kelurahan (dropdown terakhir)
-  const handleInputChangeWilayah = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
-    if (e.target.name === 'kode_wilayah') {
-      const selectedDesa = wilayahOptions.desa.find(d => d.kode_wilayah === e.target.value);
-      setFormDataRegistrasi((prev) => ({ ...prev, kode_wilayah: e.target.value, desa_kelurahan: selectedDesa ? selectedDesa.nama : '' }));
-      setFormDataEdit((prev) => ({ ...prev, kode_wilayah: e.target.value, desa_kelurahan: selectedDesa ? selectedDesa.nama : '' }));
-    } else {
-      handleInputChangeRegistrasi(e);
-      handleInputChangeEdit(e);
-    }
-  };
+  // const handleInputChangeWilayah = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
+  //   if (e.target.name === 'kode_wilayah') {
+  //     const selectedDesa = wilayahOptions.desa.find(d => d.kode_wilayah === e.target.value);
+  //     setFormDataRegistrasi((prev) => ({ ...prev, kode_wilayah: e.target.value, desa_kelurahan: selectedDesa ? selectedDesa.nama : '' }));
+  //     setFormDataEdit((prev) => ({ ...prev, kode_wilayah: e.target.value, desa_kelurahan: selectedDesa ? selectedDesa.nama : '' }));
+  //   } else {
+  //     handleInputChangeRegistrasi(e);
+  //     handleInputChangeEdit(e);
+  //   }
+  // };
 
   // Handler untuk form registrasi
   const handleInputChangeWilayahRegistrasi = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
