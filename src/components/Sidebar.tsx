@@ -1,4 +1,4 @@
-import { Home, Users, ChevronRight, Book, Calendar, Clock, GraduationCap, LogOut, Shield } from "lucide-react";
+import { Home, Users, ChevronRight, Book, Calendar, Clock, GraduationCap, LogOut, Shield, ArrowUp } from "lucide-react";
 import { useState } from "react";
 import clsx from "clsx"; // Utility untuk conditional classes
 import type { Semester, TahunAjaran } from "./PemilihanPenggunaView";
@@ -47,6 +47,11 @@ const menuItems = [
     path: "/validasi",
     label: "Validasi Otomatis",
     icon: Shield,
+  },
+  {
+    path: "/naik-kelas",
+    label: "Naik Kelas",
+    icon: ArrowUp,
   },
   {
     path: "/referensi",

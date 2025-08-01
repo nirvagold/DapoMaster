@@ -1,676 +1,220 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Loader2, AlertTriangle, CheckCircle, Play, BarChart3, History, Clock, Trash2, RotateCcw, Shield, Eye } from 'lucide-react';
-import { Pengguna } from './PemilihanPenggunaView';
 
-export type ValidasiDetail = {
+interface ValidationResult {
   peserta_didik_id: string;
   nama: string;
-  field: string;
-  action: string;
-  success: boolean;
-  message: string;
-  old_value?: string;
-  new_value?: string;
-};
+  field_error: string;
+  error_type: string;
+  error_message: string;
+  status: string;
+}
 
-export type ValidasiResult = {
-  success: boolean;
-  message: string;
-  session_id: string;
-  total_processed: number;
-  success_count: number;
-  error_count: number;
-  details: ValidasiDetail[];
-};
+interface ValidationSummary {
+  total_checked: number;
+  total_errors: number;
+  errors_by_type: ErrorTypeCount[];
+}
 
-export type ValidasiSession = {
-  session_id: string;
-  timestamp: string;
-  total_processed: number;
-  success_count: number;
-  error_count: number;
-  details: ValidasiDetail[];
-  status: 'Running' | 'Completed' | 'Failed';
-};
+interface ErrorTypeCount {
+  error_type: string;
+  count: number;
+  field_name: string;
+}
 
-export type ValidasiStats = {
-  total_siswa?: number;
-  nik_ayah_invalid?: number;
-  tanpa_hobby?: number;
-  tanpa_cita_cita?: number;
-  tahun_lahir_ayah_invalid?: number;
-  nik_wali_invalid?: number;
-  tahun_lahir_wali_invalid?: number;
-  kps_pkh_invalid?: number;
-};
+const ValidasiView: React.FC = () => {
+  const [validationData, setValidationData] = useState<ValidationResult[]>([]);
+  const [validationSummary, setValidationSummary] = useState<ValidationSummary | null>(null);
+  const [autoFixLoading, setAutoFixLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'normal' | 'stealth'>('stealth');
 
-export default function ValidasiView({ user }: { user: Pengguna | null }) {
-  const [validasiResult, setValidasiResult] = useState<ValidasiResult | null>(null);
-  const [validasiStats, setValidasiStats] = useState<ValidasiStats | null>(null);
-  const [validasiSessions, setValidasiSessions] = useState<ValidasiSession[]>([]);
-  const [selectedSession, setSelectedSession] = useState<ValidasiSession | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [showDetails, setShowDetails] = useState(false);
-  const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
-  const [backupTable, setBackupTable] = useState<string | null>(null);
-  const [showValidationWarning, setShowValidationWarning] = useState(false);
-
-  // Fetch statistik validasi dan session saat komponen mount
-  useEffect(() => {
-    fetchValidasiStats();
-    fetchValidasiSessions();
-  }, []);
-
-  const fetchValidasiStats = async () => {
-    try {
-      const stats = await invoke<ValidasiStats>('get_validasi_stats');
-      setValidasiStats(stats);
-    } catch (err) {
-      console.error('Error fetching validasi stats:', err);
-    }
-  };
-
-  const fetchValidasiSessions = async () => {
-    try {
-      const sessions = await invoke<ValidasiSession[]>('get_validasi_sessions');
-      setValidasiSessions(sessions.sort((a: ValidasiSession, b: ValidasiSession) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
-    } catch (err) {
-      console.error('Error fetching validasi sessions:', err);
-    }
-  };
-
-  const handleValidateBeforeFix = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const stats = await invoke<ValidasiStats>('validate_before_fix');
-      setValidasiStats(stats);
-      
-      const totalErrors = (stats.nik_ayah_invalid || 0) + (stats.tanpa_hobby || 0) + (stats.tanpa_cita_cita || 0) + 
-                         (stats.tahun_lahir_ayah_invalid || 0) + (stats.nik_wali_invalid || 0) + (stats.tahun_lahir_wali_invalid || 0) + 
-                         (stats.kps_pkh_invalid || 0);
-      
-      if (totalErrors > 0) {
-        setShowValidationWarning(true);
-        alert(`Validasi selesai!\n\nDitemukan ${totalErrors} error yang perlu diperbaiki.\n\nSilakan klik "Jalankan Perbaikan Otomatis" untuk memperbaiki error tersebut.`);
-      } else {
-        alert('Validasi selesai!\n\nTidak ada error yang ditemukan. Data sudah valid.');
+  // Fix hobby yang bernilai -1 atau NULL
+  const handleFixHobbyMinusOne = async () => {
+    if (confirm('Yakin ingin memperbaiki id_hobby yang bernilai -1 atau NULL dengan nilai random dari tabel ref.jenis_hobby?')) {
+      setAutoFixLoading(true);
+      try {
+        const result = await invoke<string>('auto_fix_hobby_minus_one_stealth');
+        alert(result);
+      } catch (error) {
+        console.error('Error fixing hobby -1/NULL:', error);
+        alert(`Error: ${error}`);
+      } finally {
+        setAutoFixLoading(false);
       }
-    } catch (err) {
-      setError(String(err));
-      alert(`Error: ${err}`);
+    }
+  };
+
+  // Fix cita-cita yang bernilai NULL atau -1
+  const handleFixCitaNullZero = async () => {
+    if (confirm('Yakin ingin memperbaiki id_cita yang bernilai NULL atau -1 dengan nilai random dari tabel ref.jenis_cita?')) {
+      setAutoFixLoading(true);
+      try {
+        const result = await invoke<string>('auto_fix_cita_null_zero_stealth');
+        alert(result);
+      } catch (error) {
+        console.error('Error fixing cita-cita NULL/-1:', error);
+        alert(`Error: ${error}`);
+      } finally {
+        setAutoFixLoading(false);
+      }
+    }
+  };
+
+  // Fix NIK ayah tidak valid menjadi NULL
+  const handleFixNikAyahInvalid = async () => {
+    if (confirm('Yakin ingin memperbaiki NIK ayah tidak valid (spasi, dummy, dll) menjadi NULL?')) {
+      setAutoFixLoading(true);
+      try {
+        const result = await invoke<string>('auto_fix_nik_ayah_invalid_stealth');
+        alert(result);
+      } catch (error) {
+        console.error('Error fixing NIK ayah invalid:', error);
+        alert(`Error: ${error}`);
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAutoFix = async () => {
-    if (!window.confirm('Apakah Anda yakin ingin menjalankan perbaikan otomatis? Tindakan ini akan mengubah data siswa.')) {
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setValidasiResult(null);
-    setShowValidationWarning(false);
-
-    try {
-      if (!user) {
-        throw new Error('Pengguna tidak ditemukan. Silakan login ulang.');
+        setAutoFixLoading(false);
       }
-      
-      const result = await invoke<ValidasiResult>('auto_fix_validasi_errors', { 
-        pengguna_id: user.pengguna_id 
-      });
-      setValidasiResult(result);
-      
-      // Extract backup table name from console logs (this is a simplified approach)
-      // In a real implementation, you'd want to return this from the backend
-      if (result.session_id) {
-        setBackupTable(`peserta_didik_backup_${result.session_id.split('_')[1]}`);
+    }
+  };
+
+  // Fix NIK ibu tidak valid menjadi NULL
+  const handleFixNikIbuInvalid = async () => {
+    if (confirm('Yakin ingin memperbaiki NIK ibu tidak valid (spasi, dummy, dll) menjadi NULL?')) {
+      setAutoFixLoading(true);
+      try {
+        const result = await invoke<string>('auto_fix_nik_ibu_invalid_stealth');
+        alert(result);
+      } catch (error) {
+        console.error('Error fixing NIK ibu invalid:', error);
+        alert(`Error: ${error}`);
+      } finally {
+        setAutoFixLoading(false);
       }
-      
-      // Refresh statistik dan session setelah perbaikan
-      await Promise.all([fetchValidasiStats(), fetchValidasiSessions()]);
-      
-      if (result.success) {
-        alert(`Perbaikan otomatis berhasil!\n\n${result.message}\n\nBackup table: ${backupTable || 'Tidak tersedia'}`);
-      } else {
-        alert(`Perbaikan otomatis selesai dengan beberapa error:\n\n${result.message}`);
-      }
-    } catch (err) {
-      setError(String(err));
-      alert(`Error: ${err}`);
-    } finally {
-      setLoading(false);
     }
-  };
-
-  const handleRollback = async () => {
-    if (!backupTable) {
-      alert('Tidak ada backup table yang tersedia untuk rollback.');
-      return;
-    }
-
-    if (!window.confirm(`Apakah Anda yakin ingin melakukan rollback ke backup table: ${backupTable}?\n\nTindakan ini akan mengembalikan semua data ke kondisi sebelum perbaikan.`)) {
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const result = await invoke<string>('rollback_validasi_changes', { backupTable });
-      alert(`Rollback berhasil!\n\n${result}`);
-      
-      // Reset states
-      setValidasiResult(null);
-      setBackupTable(null);
-      setShowValidationWarning(false);
-      
-      // Refresh data
-      await Promise.all([fetchValidasiStats(), fetchValidasiSessions()]);
-    } catch (err) {
-      setError(String(err));
-      alert(`Error: ${err}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCleanupSessions = async () => {
-    if (!window.confirm('Apakah Anda yakin ingin membersihkan session validasi yang lama? (lebih dari 24 jam)')) {
-      return;
-    }
-
-    try {
-      await invoke('cleanup_old_validasi_sessions', { hours: 24 });
-      await fetchValidasiSessions();
-      alert('Session validasi lama berhasil dibersihkan!');
-    } catch (err) {
-      alert(`Error: ${err}`);
-    }
-  };
-
-  const getFieldColor = (field: string) => {
-    switch (field) {
-      case 'NIK Ayah':
-      case 'NIK Wali':
-        return 'text-red-400';
-      case 'Hobby':
-      case 'Cita-cita':
-        return 'text-blue-400';
-      case 'Tahun Lahir Ayah':
-      case 'Tahun Lahir Wali':
-        return 'text-yellow-400';
-      case 'KPS/PKH':
-        return 'text-orange-400';
-      default:
-        return 'text-gray-400';
-    }
-  };
-
-  const getActionColor = (action: string) => {
-    if (action.includes('Diisi random')) return 'text-green-400';
-    if (action.includes('Dihapus')) return 'text-red-400';
-    if (action.includes('Warning')) return 'text-yellow-400';
-    return 'text-gray-400';
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Completed':
-        return 'text-green-400';
-      case 'Failed':
-        return 'text-red-400';
-      case 'Running':
-        return 'text-yellow-400';
+    switch (status.toUpperCase()) {
+      case 'CRITICAL':
+        return 'text-red-600 bg-red-100';
+      case 'ERROR':
+        return 'text-red-600 bg-red-50';
+      case 'WARNING':
+        return 'text-yellow-600 bg-yellow-50';
       default:
-        return 'text-gray-400';
+        return 'text-gray-600 bg-gray-50';
     }
   };
 
-  const formatTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleString('id-ID');
-  };
-
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 bg-gray-50 min-h-screen">
+      <div className="max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-100 mb-2">
-            Sistem Validasi Otomatis
-          </h1>
-          <p className="text-gray-400">
-            Perbaiki error validasi secara otomatis dengan sistem yang pintar
-          </p>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Validasi Data Siswa</h1>
+          <p className="text-gray-600">Perbaiki data siswa yang bermasalah secara otomatis</p>
         </div>
-        <div className="flex items-center gap-3">
+
+        {/* Tab Navigation */}
+        <div className="mb-6">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8">
           <button
-            onClick={handleValidateBeforeFix}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-lg font-semibold hover:from-blue-600 hover:to-cyan-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-          >
-            {loading ? (
-              <Loader2 className="animate-spin" size={20} />
-            ) : (
-              <Eye size={20} />
-            )}
-            {loading ? 'Memvalidasi...' : 'Validasi Data'}
+                onClick={() => setActiveTab('normal')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'normal'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Validasi Normal
           </button>
-          
           <button
-            onClick={handleAutoFix}
-            disabled={loading || !showValidationWarning}
-            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg font-semibold hover:from-pink-600 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-          >
-            {loading ? (
-              <Loader2 className="animate-spin" size={20} />
-            ) : (
-              <Play size={20} />
-            )}
-            {loading ? 'Memperbaiki...' : 'Jalankan Perbaikan Otomatis'}
+                onClick={() => setActiveTab('stealth')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'stealth'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Validasi Stealth
           </button>
+            </nav>
+          </div>
+        </div>
           
-          {backupTable && (
+        {/* Quick Fix Section */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Fix</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <button
-              onClick={handleRollback}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-red-500 to-orange-600 text-white rounded-lg font-semibold hover:from-red-600 hover:to-orange-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+              onClick={handleFixHobbyMinusOne}
+              disabled={autoFixLoading}
+              className="flex items-center gap-2 bg-teal-600 text-white px-4 py-3 rounded-lg hover:bg-teal-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 font-medium"
             >
-              {loading ? (
-                <Loader2 className="animate-spin" size={20} />
-              ) : (
-                <RotateCcw size={20} />
-              )}
-              {loading ? 'Rollback...' : 'Rollback'}
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {autoFixLoading ? 'Memperbaiki...' : 'Fix Hobby -1/NULL'}
             </button>
-          )}
-        </div>
-      </div>
 
-      {/* Tab Navigation */}
-      <div className="flex space-x-1 bg-gray-800 p-1 rounded-lg">
         <button
-          onClick={() => setActiveTab('current')}
-          className={`flex-1 py-2 px-4 rounded-md font-medium transition-colors ${
-            activeTab === 'current'
-              ? 'bg-pink-600 text-white'
-              : 'text-gray-400 hover:text-white hover:bg-gray-700'
-          }`}
-        >
-          <BarChart3 className="inline mr-2" size={16} />
-          Statistik & Perbaikan
+              onClick={handleFixCitaNullZero}
+              disabled={autoFixLoading}
+              className="flex items-center gap-2 bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 font-medium"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              {autoFixLoading ? 'Memperbaiki...' : 'Fix Cita-cita NULL/-1'}
         </button>
-        <button
-          onClick={() => setActiveTab('history')}
-          className={`flex-1 py-2 px-4 rounded-md font-medium transition-colors ${
-            activeTab === 'history'
-              ? 'bg-pink-600 text-white'
-              : 'text-gray-400 hover:text-white hover:bg-gray-700'
-          }`}
-        >
-          <History className="inline mr-2" size={16} />
-          Riwayat Validasi
-        </button>
-      </div>
-
-      {/* Current Tab Content */}
-      {activeTab === 'current' && (
-        <>
-          {/* Statistik Validasi */}
-          {validasiStats && (
-            <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-              <div className="flex items-center gap-2 mb-4">
-                <BarChart3 className="text-blue-400" size={24} />
-                <h2 className="text-xl font-semibold text-gray-100">Statistik Error Validasi</h2>
-              </div>
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                {Object.entries(validasiStats).map(([key, value]) => (
-                  <div key={key} className="bg-gray-700 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-pink-400">{value || 0}</div>
-                    <div className="text-sm text-gray-300 capitalize">
-                      {key.replace('_', ' ')}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Error Display */}
-          {error && (
-            <div className="bg-red-900/20 border border-red-600 text-red-400 p-4 rounded-lg flex items-center gap-2">
-              <AlertTriangle size={20} />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {/* Validation Warning */}
-          {showValidationWarning && (
-            <div className="bg-yellow-900/20 border border-yellow-600 text-yellow-400 p-4 rounded-lg flex items-center gap-2">
-              <Shield size={20} />
-              <span>Data telah divalidasi dan ditemukan error yang perlu diperbaiki. Silakan klik "Jalankan Perbaikan Otomatis" untuk memperbaiki error tersebut.</span>
-            </div>
-          )}
-
-          {/* Result Summary */}
-          {validasiResult && (
-            <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-100">Hasil Perbaikan Otomatis</h2>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-400">Session ID: {validasiResult.session_id}</span>
+            
                   <button
-                    onClick={() => setShowDetails(!showDetails)}
-                    className="text-blue-400 hover:text-blue-300 text-sm"
+              onClick={handleFixNikAyahInvalid}
+              disabled={autoFixLoading}
+              className="flex items-center gap-2 bg-red-600 text-white px-4 py-3 rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 font-medium"
                   >
-                    {showDetails ? 'Sembunyikan Detail' : 'Tampilkan Detail'}
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              {autoFixLoading ? 'Memperbaiki...' : 'Fix NIK Ayah → NULL'}
                   </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                <div className="bg-gray-700 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-blue-400">{validasiResult.total_processed}</div>
-                  <div className="text-sm text-gray-300">Total Diproses</div>
-                </div>
-                <div className="bg-gray-700 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-green-400">{validasiResult.success_count}</div>
-                  <div className="text-sm text-gray-300">Berhasil</div>
-                </div>
-                <div className="bg-gray-700 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-red-400">{validasiResult.error_count}</div>
-                  <div className="text-sm text-gray-300">Error</div>
-                </div>
-                <div className="bg-gray-700 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-purple-400">
-                    {validasiResult.total_processed > 0 
-                      ? Math.round((validasiResult.success_count / validasiResult.total_processed) * 100)
-                      : 0}%
-                  </div>
-                  <div className="text-sm text-gray-300">Success Rate</div>
-                </div>
-              </div>
-
-              <div className="bg-gray-700 rounded-lg p-4">
-                <p className="text-gray-300">{validasiResult.message}</p>
-              </div>
-
-              {/* Detail Results */}
-              {showDetails && validasiResult.details.length > 0 && (
-                <div className="mt-6">
-                  <h3 className="text-lg font-semibold text-gray-100 mb-4">Detail Perbaikan</h3>
-                  <div className="bg-gray-900 rounded-lg overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className="bg-gray-800">
-                          <tr>
-                            <th className="px-4 py-3 text-left text-gray-300 text-sm">Nama Siswa</th>
-                            <th className="px-4 py-3 text-left text-gray-300 text-sm">Field</th>
-                            <th className="px-4 py-3 text-left text-gray-300 text-sm">Aksi</th>
-                            <th className="px-4 py-3 text-left text-gray-300 text-sm">Nilai Lama</th>
-                            <th className="px-4 py-3 text-left text-gray-300 text-sm">Nilai Baru</th>
-                            <th className="px-4 py-3 text-left text-gray-300 text-sm">Status</th>
-                            <th className="px-4 py-3 text-left text-gray-300 text-sm">Pesan</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {validasiResult.details.map((detail, index) => (
-                            <tr key={index} className="border-b border-gray-700 hover:bg-gray-800">
-                              <td className="px-4 py-3 text-gray-300 text-sm">{detail.nama}</td>
-                              <td className="px-4 py-3">
-                                <span className={`text-sm font-medium ${getFieldColor(detail.field)}`}>
-                                  {detail.field}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className={`text-sm ${getActionColor(detail.action)}`}>
-                                  {detail.action}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-gray-400 text-sm">
-                                {detail.old_value || '-'}
-                              </td>
-                              <td className="px-4 py-3 text-gray-400 text-sm">
-                                {detail.new_value || '-'}
-                              </td>
-                              <td className="px-4 py-3">
-                                {detail.success ? (
-                                  <CheckCircle className="text-green-400" size={16} />
-                                ) : (
-                                  <AlertTriangle className="text-red-400" size={16} />
-                                )}
-                              </td>
-                              <td className="px-4 py-3 text-gray-400 text-sm max-w-xs truncate" title={detail.message}>
-                                {detail.message}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* History Tab Content */}
-      {activeTab === 'history' && (
-        <div className="space-y-6">
-          {/* Header dengan cleanup button */}
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-100">Riwayat Validasi</h2>
+            
             <button
-              onClick={handleCleanupSessions}
-              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              onClick={handleFixNikIbuInvalid}
+              disabled={autoFixLoading}
+              className="flex items-center gap-2 bg-pink-600 text-white px-4 py-3 rounded-lg hover:bg-pink-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 font-medium"
             >
-              <Trash2 size={16} />
-              Bersihkan Session Lama
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              {autoFixLoading ? 'Memperbaiki...' : 'Fix NIK Ibu → NULL'}
             </button>
           </div>
-
-          {/* Session List */}
-          <div className="bg-gray-800 rounded-lg border border-gray-700">
-            {validasiSessions.length === 0 ? (
-              <div className="p-8 text-center text-gray-400">
-                <History size={48} className="mx-auto mb-4 opacity-50" />
-                <p>Belum ada riwayat validasi</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-700">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-gray-300 text-sm">Waktu</th>
-                      <th className="px-4 py-3 text-left text-gray-300 text-sm">Status</th>
-                      <th className="px-4 py-3 text-left text-gray-300 text-sm">Total</th>
-                      <th className="px-4 py-3 text-left text-gray-300 text-sm">Berhasil</th>
-                      <th className="px-4 py-3 text-left text-gray-300 text-sm">Error</th>
-                      <th className="px-4 py-3 text-left text-gray-300 text-sm">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {validasiSessions.map((session) => (
-                      <tr key={session.session_id} className="border-b border-gray-700 hover:bg-gray-700">
-                        <td className="px-4 py-3 text-gray-300 text-sm">
-                          <div className="flex items-center gap-2">
-                            <Clock size={14} />
-                            {formatTimestamp(session.timestamp)}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`text-sm font-medium ${getStatusColor(session.status)}`}>
-                            {session.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-gray-300 text-sm">{session.total_processed}</td>
-                        <td className="px-4 py-3 text-green-400 text-sm">{session.success_count}</td>
-                        <td className="px-4 py-3 text-red-400 text-sm">{session.error_count}</td>
-                        <td className="px-4 py-3">
-                          <button
-                            onClick={() => setSelectedSession(selectedSession?.session_id === session.session_id ? null : session)}
-                            className="text-blue-400 hover:text-blue-300 text-sm"
-                          >
-                            {selectedSession?.session_id === session.session_id ? 'Sembunyikan' : 'Lihat Detail'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
           </div>
 
-          {/* Selected Session Details */}
-          {selectedSession && (
-            <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-100">
-                  Detail Session: {selectedSession.session_id}
-                </h3>
-                <span className={`text-sm font-medium ${getStatusColor(selectedSession.status)}`}>
-                  {selectedSession.status}
-                </span>
+        {/* Info Section */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <div className="bg-gray-700 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-blue-400">{selectedSession.total_processed}</div>
-                  <div className="text-sm text-gray-300">Total Diproses</div>
-                </div>
-                <div className="bg-gray-700 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-green-400">{selectedSession.success_count}</div>
-                  <div className="text-sm text-gray-300">Berhasil</div>
-                </div>
-                <div className="bg-gray-700 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-red-400">{selectedSession.error_count}</div>
-                  <div className="text-sm text-gray-300">Error</div>
-                </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-blue-800">Informasi Validasi</h3>
+              <div className="mt-2 text-sm text-blue-700">
+                <p>• <strong>Fix Hobby -1/NULL:</strong> Memperbaiki id_hobby yang bernilai -1 atau NULL dengan nilai random dari tabel ref.jenis_hobby</p>
+                <p>• <strong>Fix Cita-cita NULL/-1:</strong> Memperbaiki id_cita yang bernilai NULL atau -1 dengan nilai random dari tabel ref.jenis_cita</p>
+                <p>• <strong>Fix NIK Ayah → NULL:</strong> Memperbaiki NIK ayah tidak valid (spasi, dummy, dll) menjadi NULL</p>
+                <p>• <strong>Fix NIK Ibu → NULL:</strong> Memperbaiki NIK ibu tidak valid (spasi, dummy, dll) menjadi NULL</p>
+                <p>• Semua perbaikan dilakukan dalam mode stealth (tanpa jejak audit)</p>
               </div>
-
-              {selectedSession.details.length > 0 && (
-                <div className="bg-gray-900 rounded-lg overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-gray-800">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-gray-300 text-sm">Nama Siswa</th>
-                          <th className="px-4 py-3 text-left text-gray-300 text-sm">Field</th>
-                          <th className="px-4 py-3 text-left text-gray-300 text-sm">Aksi</th>
-                          <th className="px-4 py-3 text-left text-gray-300 text-sm">Nilai Lama</th>
-                          <th className="px-4 py-3 text-left text-gray-300 text-sm">Nilai Baru</th>
-                          <th className="px-4 py-3 text-left text-gray-300 text-sm">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {selectedSession.details.map((detail, index) => (
-                          <tr key={index} className="border-b border-gray-700 hover:bg-gray-800">
-                            <td className="px-4 py-3 text-gray-300 text-sm">{detail.nama}</td>
-                            <td className="px-4 py-3">
-                              <span className={`text-sm font-medium ${getFieldColor(detail.field)}`}>
-                                {detail.field}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className={`text-sm ${getActionColor(detail.action)}`}>
-                                {detail.action}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-gray-400 text-sm">
-                              {detail.old_value || '-'}
-                            </td>
-                            <td className="px-4 py-3 text-gray-400 text-sm">
-                              {detail.new_value || '-'}
-                            </td>
-                            <td className="px-4 py-3">
-                              {detail.success ? (
-                                <CheckCircle className="text-green-400" size={16} />
-                              ) : (
-                                <AlertTriangle className="text-red-400" size={16} />
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
             </div>
-          )}
-        </div>
-      )}
-
-      {/* Informasi Sistem */}
-      <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-        <h2 className="text-xl font-semibold text-gray-100 mb-4">Cara Kerja Sistem Validasi Otomatis</h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium text-blue-400">Validasi & Backup</h3>
-            <ul className="space-y-2 text-gray-300 text-sm">
-              <li className="flex items-start gap-2">
-                <span className="text-blue-400">•</span>
-                <span><strong>Validasi Sebelum Perbaikan:</strong> Cek error tanpa mengubah data</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-green-400">•</span>
-                <span><strong>Auto Backup:</strong> Backup otomatis sebelum perubahan</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-orange-400">•</span>
-                <span><strong>Rollback:</strong> Kembalikan data ke kondisi sebelum perbaikan</span>
-              </li>
-            </ul>
-          </div>
-          
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium text-pink-400">Perbaikan Otomatis</h3>
-            <ul className="space-y-2 text-gray-300 text-sm">
-              <li className="flex items-start gap-2">
-                <span className="text-red-400">•</span>
-                <span><strong>NIK Ayah/Wali:</strong> Dihapus jika format tidak valid</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-blue-400">•</span>
-                <span><strong>Hobby & Cita-cita:</strong> Diisi random dari referensi</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-yellow-400">•</span>
-                <span><strong>Tahun Lahir:</strong> Dihapus jika format tidak valid</span>
-              </li>
-            </ul>
-          </div>
-          
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium text-purple-400">Fitur Tambahan</h3>
-            <ul className="space-y-2 text-gray-300 text-sm">
-              <li className="flex items-start gap-2">
-                <span className="text-green-400">•</span>
-                <span><strong>Progress Tracking:</strong> Monitor progress real-time</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-purple-400">•</span>
-                <span><strong>Session Management:</strong> Riwayat lengkap dengan audit trail</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-blue-400">•</span>
-                <span><strong>Batch Processing:</strong> Perbaikan dalam batch untuk performa</span>
-              </li>
-            </ul>
           </div>
         </div>
       </div>
     </div>
   );
-}
+};
+
+export default ValidasiView;

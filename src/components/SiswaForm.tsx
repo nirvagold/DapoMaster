@@ -1,5 +1,5 @@
 import React from 'react';
-import { Agama, JenisPendaftaran, Hobby, Cita } from './SiswaView'; // Impor semua tipe
+import { Agama, JenisPendaftaran, Hobby, Cita, JenisKeluar, JenisTinggal, AlatTransportasi } from './SiswaView';
 
 export type SiswaFormData = {
   nama: string;
@@ -40,7 +40,7 @@ export type SiswaFormData = {
   email: string;
 };
 
-// Tambahkan tipe baru untuk wilayah
+// Tipe untuk wilayah
 export type WilayahReferensi = {
   kode_wilayah: string;
   nama: string;
@@ -53,7 +53,7 @@ interface SiswaFormProps {
   agamaList: Agama[];
   loading: boolean;
   onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
-  onCheckboxChange: (e: React.ChangeEvent<HTMLInputElement>) => void; // Prop baru
+  onCheckboxChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSubmit: (e: React.FormEvent) => void;
   submitText?: string;
   referensi: {
@@ -61,6 +61,9 @@ interface SiswaFormProps {
     hobbies: Hobby[];
     citas: Cita[];
     agama: Agama[];
+    jenisKeluar: JenisKeluar[];
+    jenisTinggal: JenisTinggal[];
+    alatTransportasi: AlatTransportasi[];
   };
   wilayahOptions: {
     provinsi: WilayahReferensi[];
@@ -90,13 +93,13 @@ const SiswaForm: React.FC<SiswaFormProps> = ({
   onWilayahChange,
 }) => {
   return (
-    <form onSubmit={onSubmit} className="space-y-8 bg-gray-800 p-6 rounded-xl shadow-lg max-w-2xl mx-auto border border-gray-700">
+    <form onSubmit={onSubmit} className="space-y-8 bg-gray-800 p-6 rounded-xl shadow-lg max-w-4xl mx-auto border border-gray-700">
       {/* Data Pribadi */}
       <div>
         <h3 className="text-xl font-bold text-pink-400 mb-6 tracking-wide">Data Pribadi</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label htmlFor="nama" className="block text-sm font-semibold text-gray-300 mb-2">Nama Lengkap</label>
+            <label htmlFor="nama" className="block text-sm font-semibold text-gray-300 mb-2">Nama Lengkap *</label>
             <input type="text" name="nama" id="nama" value={formData.nama} onChange={onInputChange} required 
                    className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"/>
           </div>
@@ -108,7 +111,7 @@ const SiswaForm: React.FC<SiswaFormProps> = ({
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
           <div>
-            <label className="block text-sm font-semibold text-gray-300 mb-2">Jenis Kelamin</label>
+            <label className="block text-sm font-semibold text-gray-300 mb-2">Jenis Kelamin *</label>
             <select name="jenis_kelamin" value={formData.jenis_kelamin} onChange={onInputChange} 
                     className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition">
               <option value="L">Laki-laki</option>
@@ -122,21 +125,40 @@ const SiswaForm: React.FC<SiswaFormProps> = ({
                      className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"/>
             </div>
             <div>
-              <label htmlFor="tanggal_lahir" className="block text-sm font-semibold text-gray-300 mb-2">Tanggal Lahir</label>
+              <label htmlFor="tanggal_lahir" className="block text-sm font-semibold text-gray-300 mb-2">Tanggal Lahir *</label>
               <input type="date" name="tanggal_lahir" id="tanggal_lahir" value={formData.tanggal_lahir} onChange={onInputChange} required
                      className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"/>
             </div>
           </div>
         </div>
-        <div className="mt-6">
-          <label htmlFor="agama_id" className="block text-sm font-semibold text-gray-300 mb-2">Agama</label>
-          <select name="agama_id" id="agama_id" value={formData.agama_id} onChange={onInputChange} required
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition">
-            <option value="">-- Pilih Agama --</option>
-            {agamaList.map(agama => (
-              <option key={agama.agama_id} value={agama.agama_id}>{agama.nama}</option>
-            ))}
-          </select>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          <div>
+            <label htmlFor="agama_id" className="block text-sm font-semibold text-gray-300 mb-2">Agama *</label>
+            <select name="agama_id" id="agama_id" value={formData.agama_id} onChange={onInputChange} required
+                    className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition">
+              <option value="">-- Pilih Agama --</option>
+              {agamaList.map(agama => (
+                <option key={agama.agama_id} value={agama.agama_id}>{agama.nama}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="kewarganegaraan" className="block text-sm font-semibold text-gray-300 mb-2">Kewarganegaraan</label>
+            <input type="text" name="kewarganegaraan" id="kewarganegaraan" value={formData.kewarganegaraan} onChange={onInputChange} 
+                   className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"/>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          <div>
+            <label htmlFor="nik" className="block text-sm font-semibold text-gray-300 mb-2">NIK</label>
+            <input type="text" name="nik" id="nik" value={formData.nik} onChange={onInputChange} 
+                   className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"/>
+          </div>
+          <div>
+            <label htmlFor="no_kk" className="block text-sm font-semibold text-gray-300 mb-2">Nomor KK</label>
+            <input type="text" name="no_kk" id="no_kk" value={formData.no_kk} onChange={onInputChange} 
+                   className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"/>
+          </div>
         </div>
       </div>
 
@@ -150,14 +172,14 @@ const SiswaForm: React.FC<SiswaFormProps> = ({
                    className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"/>
           </div>
           <div>
-            <label htmlFor="tanggal_masuk_sekolah" className="block text-sm font-semibold text-gray-300 mb-2">Tanggal Masuk Sekolah</label>
+            <label htmlFor="tanggal_masuk_sekolah" className="block text-sm font-semibold text-gray-300 mb-2">Tanggal Masuk Sekolah *</label>
             <input type="date" name="tanggal_masuk_sekolah" id="tanggal_masuk_sekolah" value={formData.tanggal_masuk_sekolah} onChange={onInputChange} required 
                    className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"/>
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
           <div>
-            <label htmlFor="jenis_pendaftaran_id" className="block text-sm font-semibold text-gray-300 mb-2">Jenis Pendaftaran</label>
+            <label htmlFor="jenis_pendaftaran_id" className="block text-sm font-semibold text-gray-300 mb-2">Jenis Pendaftaran *</label>
             <select name="jenis_pendaftaran_id" id="jenis_pendaftaran_id" value={formData.jenis_pendaftaran_id} onChange={onInputChange} required
                     className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition">
               <option value="">-- Pilih Jenis Pendaftaran --</option>
@@ -169,7 +191,7 @@ const SiswaForm: React.FC<SiswaFormProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label htmlFor="id_hobby" className="block text-sm font-semibold text-gray-300 mb-2">Hobi</label>
-              <select name="id_hobby" id="id_hobby" value={formData.id_hobby} onChange={onInputChange} required
+              <select name="id_hobby" id="id_hobby" value={formData.id_hobby} onChange={onInputChange}
                       className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition">
                 <option value="">-- Pilih Hobi --</option>
                 {referensi.hobbies.map(h => (
@@ -179,7 +201,7 @@ const SiswaForm: React.FC<SiswaFormProps> = ({
             </div>
             <div>
               <label htmlFor="id_cita" className="block text-sm font-semibold text-gray-300 mb-2">Cita-cita</label>
-              <select name="id_cita" id="id_cita" value={formData.id_cita} onChange={onInputChange} required
+              <select name="id_cita" id="id_cita" value={formData.id_cita} onChange={onInputChange}
                       className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition">
                 <option value="">-- Pilih Cita-cita --</option>
                 {referensi.citas.map(c => (
@@ -205,12 +227,12 @@ const SiswaForm: React.FC<SiswaFormProps> = ({
       <div>
         <h3 className="text-xl font-bold text-pink-400 mb-6 tracking-wide">Data Alamat</h3>
         <div className="mb-6">
-          <label htmlFor="alamat_jalan" className="block text-sm font-semibold text-gray-300 mb-2">Alamat Jalan</label>
+          <label htmlFor="alamat_jalan" className="block text-sm font-semibold text-gray-300 mb-2">Alamat Jalan *</label>
           <input type="text" name="alamat_jalan" id="alamat_jalan" value={formData.alamat_jalan} onChange={onInputChange} required className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"/>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-semibold text-gray-300 mb-2">Provinsi</label>
+            <label className="block text-sm font-semibold text-gray-300 mb-2">Provinsi *</label>
             <select
               name="provinsi"
               value={selectedWilayah.provinsi}
@@ -225,7 +247,7 @@ const SiswaForm: React.FC<SiswaFormProps> = ({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-300 mb-2">Kabupaten/Kota</label>
+            <label className="block text-sm font-semibold text-gray-300 mb-2">Kabupaten/Kota *</label>
             <select
               name="kabupaten"
               value={selectedWilayah.kabupaten}
@@ -242,7 +264,7 @@ const SiswaForm: React.FC<SiswaFormProps> = ({
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
           <div>
-            <label className="block text-sm font-semibold text-gray-300 mb-2">Kecamatan</label>
+            <label className="block text-sm font-semibold text-gray-300 mb-2">Kecamatan *</label>
             <select
               name="kecamatan"
               value={selectedWilayah.kecamatan}
@@ -257,7 +279,7 @@ const SiswaForm: React.FC<SiswaFormProps> = ({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-300 mb-2">Desa/Kelurahan</label>
+            <label className="block text-sm font-semibold text-gray-300 mb-2">Desa/Kelurahan *</label>
             <select
               name="kode_wilayah"
               value={formData.kode_wilayah}
@@ -272,14 +294,115 @@ const SiswaForm: React.FC<SiswaFormProps> = ({
             </select>
           </div>
         </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          <div>
+            <label htmlFor="rt" className="block text-sm font-semibold text-gray-300 mb-2">RT</label>
+            <input type="text" name="rt" id="rt" value={formData.rt} onChange={onInputChange} 
+                   className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"/>
+          </div>
+          <div>
+            <label htmlFor="rw" className="block text-sm font-semibold text-gray-300 mb-2">RW</label>
+            <input type="text" name="rw" id="rw" value={formData.rw} onChange={onInputChange} 
+                   className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"/>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          <div>
+            <label htmlFor="nama_dusun" className="block text-sm font-semibold text-gray-300 mb-2">Nama Dusun</label>
+            <input type="text" name="nama_dusun" id="nama_dusun" value={formData.nama_dusun} onChange={onInputChange} 
+                   className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"/>
+          </div>
+          <div>
+            <label htmlFor="kode_pos" className="block text-sm font-semibold text-gray-300 mb-2">Kode Pos</label>
+            <input type="text" name="kode_pos" id="kode_pos" value={formData.kode_pos} onChange={onInputChange} 
+                   className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"/>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          <div>
+            <label htmlFor="lintang" className="block text-sm font-semibold text-gray-300 mb-2">Koordinat Lintang</label>
+            <input type="text" name="lintang" id="lintang" value={formData.lintang} onChange={onInputChange} 
+                   className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"/>
+          </div>
+          <div>
+            <label htmlFor="bujur" className="block text-sm font-semibold text-gray-300 mb-2">Koordinat Bujur</label>
+            <input type="text" name="bujur" id="bujur" value={formData.bujur} onChange={onInputChange} 
+                   className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"/>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          <div>
+            <label htmlFor="jenis_tinggal_id" className="block text-sm font-semibold text-gray-300 mb-2">Jenis Tempat Tinggal</label>
+            <select name="jenis_tinggal_id" id="jenis_tinggal_id" value={formData.jenis_tinggal_id} onChange={onInputChange}
+                    className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition">
+              <option value="">-- Pilih Jenis Tempat Tinggal --</option>
+              {referensi.jenisTinggal.map(jt => (
+                <option key={jt.jenis_tinggal_id} value={jt.jenis_tinggal_id}>{jt.nama}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="alat_transportasi_id" className="block text-sm font-semibold text-gray-300 mb-2">Alat Transportasi</label>
+            <select name="alat_transportasi_id" id="alat_transportasi_id" value={formData.alat_transportasi_id} onChange={onInputChange}
+                    className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition">
+              <option value="">-- Pilih Alat Transportasi --</option>
+              {referensi.alatTransportasi.map(at => (
+                <option key={at.alat_transportasi_id} value={at.alat_transportasi_id}>{at.nama}</option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* Data Orang Tua */}
       <div>
         <h3 className="text-xl font-bold text-pink-400 mb-6 tracking-wide">Data Orang Tua</h3>
-        <div>
-          <label htmlFor="nama_ibu_kandung" className="block text-sm font-semibold text-gray-300 mb-2">Nama Ibu Kandung</label>
-          <input type="text" name="nama_ibu_kandung" id="nama_ibu_kandung" value={formData.nama_ibu_kandung} onChange={onInputChange} required className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"/>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label htmlFor="nama_ibu_kandung" className="block text-sm font-semibold text-gray-300 mb-2">Nama Ibu Kandung *</label>
+            <input type="text" name="nama_ibu_kandung" id="nama_ibu_kandung" value={formData.nama_ibu_kandung} onChange={onInputChange} required className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"/>
+          </div>
+          <div>
+            <label htmlFor="anak_keberapa" className="block text-sm font-semibold text-gray-300 mb-2">Anak Keberapa</label>
+            <input type="text" name="anak_keberapa" id="anak_keberapa" value={formData.anak_keberapa} onChange={onInputChange} 
+                   className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"/>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          <div>
+            <label htmlFor="nik_ayah" className="block text-sm font-semibold text-gray-300 mb-2">NIK Ayah</label>
+            <input type="text" name="nik_ayah" id="nik_ayah" value={formData.nik_ayah} onChange={onInputChange} 
+                   className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"/>
+          </div>
+          <div>
+            <label htmlFor="nik_ibu" className="block text-sm font-semibold text-gray-300 mb-2">NIK Ibu</label>
+            <input type="text" name="nik_ibu" id="nik_ibu" value={formData.nik_ibu} onChange={onInputChange} 
+                   className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"/>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          <div>
+            <label htmlFor="nik_wali" className="block text-sm font-semibold text-gray-300 mb-2">NIK Wali</label>
+            <input type="text" name="nik_wali" id="nik_wali" value={formData.nik_wali} onChange={onInputChange} 
+                   className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"/>
+          </div>
+          <div>
+            <label htmlFor="nomor_telepon_rumah" className="block text-sm font-semibold text-gray-300 mb-2">Telepon Rumah</label>
+            <input type="text" name="nomor_telepon_rumah" id="nomor_telepon_rumah" value={formData.nomor_telepon_rumah} onChange={onInputChange} 
+                   className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"/>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          <div>
+            <label htmlFor="nomor_telepon_seluler" className="block text-sm font-semibold text-gray-300 mb-2">Telepon Seluler</label>
+            <input type="text" name="nomor_telepon_seluler" id="nomor_telepon_seluler" value={formData.nomor_telepon_seluler} onChange={onInputChange} 
+                   className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"/>
+          </div>
+          <div>
+            <label htmlFor="email" className="block text-sm font-semibold text-gray-300 mb-2">Email</label>
+            <input type="email" name="email" id="email" value={formData.email} onChange={onInputChange} 
+                   className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition"/>
+          </div>
         </div>
       </div>
 

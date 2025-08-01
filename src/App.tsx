@@ -6,6 +6,7 @@ import SiswaView from "./components/SiswaView";
 import LulusanView from "./components/LulusanView";
 import KeluarView from "./components/KeluarView";
 import ValidasiView from "./components/ValidasiView";
+import NaikKelasView from "./components/NaikKelasView";
 import LogPanel from "./components/LogPanel";
 
 function App() {
@@ -34,7 +35,11 @@ function App() {
     }
     
     if (activePath === "/validasi") {
-      return <ValidasiView user={user} />;
+      return <ValidasiView />;
+    }
+    
+    if (activePath === "/naik-kelas") {
+      return <NaikKelasView />;
     }
     
     return <DashboardView semester={selectedSemester} tahunAjaran={selectedTahunAjaran} />;

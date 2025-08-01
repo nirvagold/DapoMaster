@@ -10,7 +10,7 @@ fn is_dapodik_running() -> bool {
     // Pendekatan sederhana: cek apakah port 5432 (PostgreSQL) sedang digunakan
     // Ini adalah pendekatan alternatif yang tidak memerlukan sysinfo
     use std::net::TcpListener;
-    match TcpListener::bind("127.0.0.1:5432") {
+    match TcpListener::bind("localhost:53774") {
         Ok(_) => false, // Port tidak digunakan, Dapodik tidak berjalan
         Err(_) => true,  // Port digunakan, kemungkinan Dapodik berjalan
     }
