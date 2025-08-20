@@ -54,6 +54,10 @@ pub fn run() {
             commands::referensi::get_all_hobby,
             commands::referensi::get_all_cita,
             commands::referensi::get_wilayah_by_level_and_parent,
+            commands::referensi::get_all_pekerjaan,
+            commands::referensi::get_all_penghasilan,
+            commands::referensi::get_all_wilayah,
+            commands::referensi::get_referensi_data,
             
             // Siswa - Referensi tambahan
             commands::siswa::get_all_jenis_keluar,
@@ -63,40 +67,50 @@ pub fn run() {
             // Siswa
             commands::siswa::get_total_siswa,
             commands::siswa::get_daftar_siswa,
-            commands::siswa::registrasi_siswa_baru,
+            commands::siswa::registrasi_siswa_stealth,
+            commands::siswa::upsert_siswa_stealth,
             commands::siswa::get_siswa_by_id,
-            commands::siswa::update_siswa,
             commands::siswa::update_siswa_stealth,
-            commands::siswa::update_siswa_ghost,
             commands::siswa::delete_siswa,
-            commands::siswa::fix_desa_kelurahan_format,
-            commands::siswa::test_update_siswa_stealth,
             
             // Lulusan
             commands::lulusan::get_total_siswa_lulus,
             commands::lulusan::get_daftar_siswa_lulus,
-            commands::lulusan::update_bulk_ijazah,
+            commands::lulusan::update_bulk_ijazah_stealth,
             commands::lulusan::get_all_jenis_ijazah,
             
             // Keluar
             commands::keluar::get_total_siswa_keluar,
             commands::keluar::get_daftar_siswa_keluar,
+            commands::keluar::cek_bisa_batalkan_keluar,
+            commands::keluar::batalkan_siswa_keluar_stealth,
+            commands::keluar::hapus_siswa_keluar_permanen_stealth,
+            commands::keluar::manipulasi_server_untuk_hapus_stealth,
             
             // Export
-            commands::export::export_lulusan_to_excel,
+            commands::export::lulusan::export_lulusan_to_excel,
             commands::export::export_siswa_keluar_to_excel,
+            commands::export::export_rekap_usia_siswa_per_rombel,
+            commands::export::get_daftar_rombel_untuk_export,
+            commands::export::export_rekap_usia_siswa_detail_per_rombel,
             commands::export::import_lulusan_from_excel,
-            commands::export::open_import_dialog,
+            commands::export::dialog::open_import_dialog,
             
             // Validasi
+            commands::validasi::get_validation_summary,
+            commands::validasi::get_validation_details,
             commands::validasi::auto_fix_hobby_minus_one_stealth,
             commands::validasi::auto_fix_cita_null_zero_stealth,
             commands::validasi::auto_fix_nik_ayah_invalid_stealth,
-                        commands::validasi::auto_fix_nik_ibu_invalid_stealth,
+            commands::validasi::auto_fix_nik_ibu_invalid_stealth,
+            commands::validasi::auto_fix_nik_siswa_invalid_stealth,
+            commands::validasi::auto_fix_nama_siswa_invalid_stealth,
+            commands::validasi::auto_fix_nama_ayah_kosong_stealth,
+            commands::validasi::auto_fix_nik_siswa_kosong_stealth,
+            commands::validasi::auto_fix_nik_wali_kosong_stealth,
+            commands::validasi::auto_fix_all_stealth,
             
-            // Naik Kelas
-            commands::naik_kelas::get_siswa_naik_kelas,
-            commands::naik_kelas::get_daftar_semester,
+
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
