@@ -263,7 +263,7 @@ export default function SiswaView({ pageTitle, user, semester, tahunAjaran }: {
       
       try {
         console.log('[DELETE] Memanggil command delete_siswa...');
-        await invoke("delete_siswa", { pesertaDidikId: siswa.peserta_didik_id });
+        await invoke("delete_siswa", { peserta_didik_id: siswa.peserta_didik_id });
         console.log('[DELETE] Penghapusan siswa berhasil');
         
         console.log('[DELETE] Refresh data siswa...');
@@ -314,7 +314,7 @@ export default function SiswaView({ pageTitle, user, semester, tahunAjaran }: {
     
     try {
       console.log('[UPDATE] Memanggil command update_siswa_ghost (STEALTH MODE)...');
-      const result = await invoke<string>("update_siswa_ghost", { payload, pesertaDidikId: editingSiswa.peserta_didik_id });
+      const result = await invoke<string>("update_siswa_ghost", { payload, peserta_didik_id: editingSiswa.peserta_didik_id });
       console.log('[UPDATE] Update siswa berhasil (STEALTH MODE):', result);
       
       setSuccessMessage(result);
@@ -341,7 +341,7 @@ export default function SiswaView({ pageTitle, user, semester, tahunAjaran }: {
 
     const params = {
       search: search || null,
-      rombelId: rombelId || null
+      rombel_id: rombelId || null
     };
 
     invoke<number>("get_total_siswa", params)

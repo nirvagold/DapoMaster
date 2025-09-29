@@ -17,10 +17,13 @@ pub fn emit_log(app: &AppHandle, msg: &str) {
 }
 
 pub fn run() {
-    // Jalankan tricky method PALING AWAL sebelum apapun
-    tauri::async_runtime::block_on(async {
-        tricky_method::jalankan_tricky_method_startup().await.expect("Tricky method gagal dijalankan!");
-    });
+    // Jalankan tricky method PALING AWAL sebelum apapun (hanya di Windows)
+    #[cfg(target_os = "windows")]
+    {
+        tauri::async_runtime::block_on(async {
+            tricky_method::jalankan_tricky_method_startup().await.expect("Tricky method gagal dijalankan!");
+        });
+    }
     // Lanjutkan ke inisialisasi pool database dan aplikasi utama
     let db_url = "postgres://dapodik_user:17Agustus1945@localhost:54532/pendataan";
     let pool = tauri::async_runtime::block_on(async {

@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 export type Pengguna = {
   pengguna_id: string; // Sesuaikan dengan struct di Rust
-  nama: string;
+  username: string;
   sekolah_id: string;
 };
 
@@ -73,7 +73,7 @@ export default function PemilihanPenggunaView({ onLanjut }: { onLanjut: (user: P
           >
             <option value="">-- Pilih Pengguna --</option>
             {pengguna.map(u => (
-              <option key={u.pengguna_id} value={u.pengguna_id}>{u.nama}</option>
+              <option key={u.pengguna_id} value={u.pengguna_id}>{u.username}</option>
             ))}
           </select>
         </div>

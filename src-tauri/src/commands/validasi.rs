@@ -1,4 +1,5 @@
-use crate::{DbPool, emit_log};
+use crate::{emit_log};
+use crate::app_state::DbPool;
 use sqlx::types::Uuid as SqlxUuid;
 use tauri::{AppHandle, State};
 use serde::{Serialize, Deserialize};

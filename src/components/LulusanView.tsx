@@ -67,7 +67,7 @@ export default function LulusanView({
       setError(null);
       
       const [total, data] = await Promise.all([
-        invoke<number>("get_total_siswa_lulus", { page, pageSize, search: search || null }),
+        invoke<number>("get_total_siswa_lulus", { search: search || null }),
         invoke<SiswaLulus[]>("get_daftar_siswa_lulus", { page, pageSize, search: search || null })
       ]);
       
